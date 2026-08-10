@@ -13,6 +13,7 @@ prefix-old/
 # Local debug/probe scripts (not part of the public suite)
 debug_*.py
 dump_*.py
+probe_*.py
 scan_cron_concepts.py
 verify_prod_search.py
 
