@@ -9,7 +9,7 @@ Xenova/paraphrase-multilingual-MiniLM-L12-v2 it should pass.
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "harness"))
 from mcp_client import MonetClient, DATA
 
 CIRCLE = "e2e-ko"

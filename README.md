@@ -2,24 +2,42 @@
 
 End-to-end test suite for [Monet](https://github.com/team-monet/monet) — local-first, MCP-native memory for AI agents.
 
-This repository continuously exercises Monet against a real server process and a real SQLite store. It is the verification layer behind Monet's durability story: what an agent stores today must be retrievable tomorrow, in isolation, under concurrency, and across schema migrations.
+This repository continuously exercises Monet against a real server process and a real SQLite store: what an agent stores today must be retrievable tomorrow, in isolation, under concurrency, and across schema migrations.
 
-## What is covered
+## Repository layout
 
-| # | Scenario | Test | Assertions |
-|---|----------|------|-----------|
-| 1 | Startup & MCP handshake | `test01_handshake.py` | 5 |
-| 2 | Store → search → retrieve round trip | `test02_store_search.py` | 6 |
-| 3 | Korean search retrieval | `test03_korean_search.py` | 3 |
-| 4 | Cross-session persistence (server restart) | `test04_cross_session.py` | 4 |
-| 5 | Circle isolation & reassignment | `test05_circle_isolation.py` | 9 |
-| 6 | Contradiction detection & resolution | `test06_contradiction.py` | 8 |
-| 7 | Schema migration (real 1.2.4 fixture → current) | `test07_schema_migration.py` | 10 |
-| 8 | Repair regression (post-migration state) | `test08_repair_regression.py` | 6 |
-| 9 | Concurrency (multi-process + burst writes) | `test09_concurrency.py` | 15 |
-| 10 | Dedup growth (API + DB layer) | `test10_dedup_growth.py` | 11 |
+```
+.
+├── harness/          # reusable test harness
+│   ├── mcp_client.py          # zero-dependency MCP stdio client (env-configurable)
+│   ├── run_all.py             # suite runner: runs every test in ../tests/
+│   └── make_fixture_schema4.py# generator for the old-schema (1.2.4) fixture
+├── tests/            # one self-contained scenario per file (testNN_*.py)
+├── diary/            # run-by-run narrative (what, why, result, next)
+├── METRICS.md        # progression table — the source of truth for coverage
+├── GUARDRAILS.md     # operating rules for the autonomous agent
+└── .github/ISSUE_TEMPLATE/    # bug / test suggestion / feedback
+```
 
-**Current status: 10/10 passing, 77 assertions, 0% failure.** See [METRICS.md](METRICS.md) for the full history.
+## How this repository is maintained
+
+This repo is maintained by an **autonomous agent** running on a schedule (currently 08:00 and 20:00 AEST), with a human in the loop for decisions and external actions. Understanding this model helps you interpret the commit history and the state of the repo.
+
+**The agent's per-run loop:**
+
+1. **Read state** — `METRICS.md`, `GUARDRAILS.md`, and recent `diary/` entries to understand where the suite stands.
+2. **Check issues** — lists open issues in this repo. New issues are handled first: reproduce, add/fix a test, update docs.
+3. **Decide** — what to work on this run. Priority: open issues → failing tests → new scenarios.
+4. **Execute** — runs the suite against an isolated data dir (never the real store, GR-01) using the real MCP client (initialize → tools/list → store → search).
+5. **Record** — appends to `diary/`, updates `METRICS.md` (tests / coverage / failure rate), and adds guardrails when a new rule is needed.
+6. **Sync** — commits and pushes to this repo. All public-facing content (docs, commit messages) is in English.
+
+**What that means for you:**
+
+- **`METRICS.md` is the living status report** — check it for current coverage instead of any table in this README (which is why this README doesn't restate scenario lists; they go stale).
+- **Every commit is attributable to a run** — the diary entry for that date explains what happened and why.
+- **Guardrails are rules, not suggestions** — GR-01 (isolation) and GR-06 (re-run safety) are the two that matter most if you add tests.
+- **Issues are the feedback channel** — file a bug, suggest a scenario, or ask anything. The agent picks up new issues on its next run, and replies on the issue.
 
 ## Requirements
 
@@ -29,7 +47,7 @@ This repository continuously exercises Monet against a real server process and a
   ```sh
   npm install -g @team-monet/monet
   ```
-- For scenario 7 (schema migration) you also need an old `@team-monet/monet@1.2.4` install — see "Schema-7 fixture" below.
+- For the schema-migration test you also need an old `@team-monet/monet@1.2.4` install — see "Schema fixture" below.
 
 ## Running
 
@@ -38,7 +56,7 @@ export MONET_CLI=$(which monet)          # optional: path to Monet CLI (defaults
 export MONET_NODE_PATH=/path/to/node/bin # optional: node bin dir to prepend to PATH
 export MONET_TEST_DIR=$HOME/.monet-test  # optional: where test data lives (default: ~/.monet-test)
 
-python3 run_all.py
+python3 harness/run_all.py
 ```
 
 Every test spawns its own `monet start -d <dir>` server process against the isolated test DB. The suite runner exits non-zero if any test fails.
@@ -46,7 +64,7 @@ Every test spawns its own `monet start -d <dir>` server process against the isol
 To run a single test:
 
 ```sh
-python3 test01_handshake.py
+python3 tests/test01_handshake.py
 ```
 
 ## Environment variables
@@ -56,18 +74,12 @@ python3 test01_handshake.py
 | `MONET_CLI` | `monet` on PATH | Path to the Monet CLI (`cli.js`) |
 | `MONET_NODE_PATH` | *(empty)* | Node bin dir prepended to PATH for the server process |
 | `MONET_TEST_DIR` | `~/.monet-test` | Where the isolated SQLite DB and fixtures live |
-| `MONET_FIXTURE_DIR` | `$MONET_TEST_DIR/fixtures/schema4` | Where the schema-4 fixture is (scenario 7) |
+| `MONET_FIXTURE_DIR` | `$MONET_TEST_DIR/fixtures/schema4` | Where the schema-4 fixture lives (migration test) |
 | `MONET_OLD_CLI` | `$MONET_TEST_DIR/prefix-old/...` | Path to the old 1.2.4 CLI (fixture generator) |
-
-## How the harness works
-
-- `mcp_client.py` — zero-dependency MCP stdio client. Spawns the server, does `initialize → tools/list → tools/call`, unwraps the standard MCP content block into JSON. All tests use it.
-- `run_all.py` — suite runner: runs every `testNN_*.py`, prints per-test PASS/FAIL + timing, exits non-zero on any failure.
-- Each test is self-contained and **re-run safe**: fresh circles and content tokens per run (GR-06), so repeated runs never pollute each other.
 
 ## Known product findings
 
-These observations surfaced from the test suite and are relevant product input:
+Observations surfaced by the suite that are relevant product input:
 
 - **Fresh DB pins `Xenova/bge-small-en-v1.5`** (English-only). Korean store/search is refused with an explicit non-Latin error until `monet repair` migrates to `Xenova/paraphrase-multilingual-MiniLM-L12-v2`. Use the bare model ID, no `onnx:` prefix.
 - **Schema auto-migration works**: opening a new server on a schema-4 DB auto-migrates 4 → 12 and backfills the pin to the legacy embedder so existing vectors stay valid. Old observations remain retrievable.
@@ -77,20 +89,20 @@ These observations surfaced from the test suite and are relevant product input:
 - Korean-only concepts get empty slugs even with the multilingual embedder — cosmetic; retrieval still works.
 - `monet doctor` needs `--check-provider` to report `Assessment: safe`.
 
-## Schema-7 fixture (regeneration)
+## Schema fixture (regeneration)
 
-Scenario 7 tests migration from a real 1.2.4-era database. The pristine fixture is generated once and copied to a scratch dir per run (so the pristine copy is never mutated):
+The migration test needs a real 1.2.4-era database. The pristine fixture is generated once and copied to a scratch dir per run (so the pristine copy is never mutated):
 
 ```sh
 # install the old package into a prefix dir once
 npm install --prefix $MONET_TEST_DIR/prefix-old @team-monet/monet@1.2.4
 # generate the fixture DB (spawns old cli.js start → store → close)
-python3 make_fixture_schema4.py
+python3 harness/make_fixture_schema4.py
 ```
 
 ## Guardrails
 
-The autonomous agent that maintains this suite operates under explicit guardrails — see [GUARDRAILS.md](GUARDRAILS.md). The two that matter most for contributors:
+The agent operates under explicit guardrails — see [GUARDRAILS.md](GUARDRAILS.md). The two that matter most for contributors:
 
 - **GR-01**: tests must run against an isolated data dir (`-d`), never the real store.
 - **GR-06**: tests must be re-run safe — no shared fixed circle names or state pollution between runs.
@@ -103,7 +115,7 @@ Feedback is welcome via [GitHub Issues](../../issues):
 - 🧪 **Test suggestion** — a scenario that should be covered
 - 💬 **Question / feedback** — anything else
 
-Every issue filed here is reviewed by the maintainers (and, when the suite is running, by the autonomous agent itself). See the issue templates for details.
+Every issue filed here is reviewed by the maintainers — and picked up by the autonomous agent on its next scheduled run, which will reply on the issue with what it did.
 
 ## License
 

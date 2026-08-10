@@ -16,7 +16,7 @@ import sys
 import threading
 import time
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "harness"))
 from mcp_client import MonetClient, CLI, NODE_PATH, DATA
 
 

@@ -7,7 +7,7 @@ server, then start a fresh server (session B) and retrieve the data.
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "harness"))
 from mcp_client import MonetClient, DATA
 
 CIRCLE = "e2e-x"

@@ -14,7 +14,7 @@ import subprocess
 import sys
 import threading
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "harness"))
 from mcp_client import MonetClient, DATA, NODE_PATH
 
 FIXTURE_DIR = os.environ.get("MONET_FIXTURE_DIR", os.path.join(DATA, "fixtures", "schema4"))

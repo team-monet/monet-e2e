@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Monet E2E suite runner: runs every testNN_*.py and aggregates results.
+"""Monet E2E suite runner: runs every test in ../tests/ and aggregates results.
 
-Usage: python3 run_all.py
+Usage: python3 harness/run_all.py
 Exit code 0 if every test passes, 1 otherwise.
 """
 import glob
@@ -11,7 +11,7 @@ import sys
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-TESTS = sorted(glob.glob(os.path.join(HERE, "test??_*.py")))
+TESTS = sorted(glob.glob(os.path.join(HERE, "..", "tests", "test??_*.py")))
 
 
 def main():
@@ -20,7 +20,7 @@ def main():
     for t in TESTS:
         total += 1
         t0 = time.time()
-        p = subprocess.run([sys.executable, t], capture_output=True, text=True, cwd=HERE, timeout=600)
+        p = subprocess.run([sys.executable, t], capture_output=True, text=True, cwd=os.path.dirname(t), timeout=600)
         dt = time.time() - t0
         ok = p.returncode == 0
         if ok:
