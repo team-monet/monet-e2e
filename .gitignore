@@ -1,0 +1,22 @@
+# Local test data / runtime state (never commit)
+monet.db
+monet.db-shm
+monet.db-wal
+gate-mirror.json
+backups/
+run-*/
+
+# Schema-7 fixture + old-package prefix (regenerate via make_fixture_schema4.py)
+fixtures/
+prefix-old/
+
+# Local debug/probe scripts (not part of the public suite)
+debug_*.py
+dump_*.py
+scan_cron_concepts.py
+verify_prod_search.py
+
+# Python
+__pycache__/
+*.pyc
+.venv/
