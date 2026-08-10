@@ -57,7 +57,13 @@ def main():
         check("circleB_no_leak", all(card.get("circle") == CIRCLE_B for card in cards_b), f"n={len(cards_b)}")
 
         # 3. unrestricted search returns both, tagged with home circle
-        r = c.call_json("memory_search", {"query": "circle isolation probe", "limit": 10})
+        # GR-06 (2026-08-11): the query MUST carry the run token. A generic
+        # query ("circle isolation probe") competes against every prior run's
+        # near-identical concepts accumulated in the shared DB, and today's
+        # circle-A concept falls below the ranking cutoff (observed: seen set
+        # = {circle B only}). Token-scoped query + generous limit keeps the
+        # assertion about circle tagging, not about winning a global ranking.
+        r = c.call_json("memory_search", {"query": f"circle isolation probe {TOKEN}", "limit": 20})
         cards_all = r.get("results") or []
         seen = {card.get("circle") for card in cards_all if card.get("id") in (id_a, id_b)}
         check("unrestricted_both_circles", CIRCLE_A in seen and CIRCLE_B in seen, f"seen={seen}")
