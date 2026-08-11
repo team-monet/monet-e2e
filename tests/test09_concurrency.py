@@ -117,6 +117,7 @@ def burst_phase():
 
     def run_burst(make_content):
         out = [[] for _ in clients]
+        errs = [[] for _ in clients]
         def writer(idx, client):
             for i in range(5):
                 content = make_content(idx, i)
@@ -124,9 +125,11 @@ def burst_phase():
                     r = client.call_json("memory_store", {"content": content, "circle": CIRCLE2, "sourceRefs": ["e2e:test09-burst"]})
                     ok = bool(r.get("conceptId"))
                     cid = r.get("conceptId")
-                except Exception:
+                except Exception as exc:  # noqa: BLE001 — record for diagnosis
                     ok = False
                     cid = None
+                    with lock:
+                        errs[idx].append(f"{type(exc).__name__}: {str(exc)[:160]}")
                 with lock:
                     out[idx].append((ok, cid))
         t0 = time.time()
@@ -135,10 +138,10 @@ def burst_phase():
             t.start()
         for t in threads:
             t.join()
-        return time.time() - t0, [item for lat in out for item in lat]
+        return time.time() - t0, [item for lat in out for item in lat], errs
 
     # Sub-phase A: near-identical template -> dedup under concurrency
-    wall_a, flat_a = run_burst(lambda idx, i: f"Burst load test payload about the same topic {TOKEN2} item {i} of writer {idx}")
+    wall_a, flat_a, errs_a = run_burst(lambda idx, i: f"Burst load test payload about the same topic {TOKEN2} item {i} of writer {idx}")
     ok_a = all(ok for ok, _ in flat_a)
     ids_a = set(cid for _, cid in flat_a)
     check("burstA_20_stores_ok", ok_a, f"ok={sum(1 for ok, _ in flat_a if ok)}/20 wall={wall_a:.1f}s")
@@ -173,11 +176,15 @@ def burst_phase():
     ]
     def distinct_content(idx, i):
         return f"[{TOKEN2}] {sentences[idx*5+i]}"
-    wall_b, flat_b = run_burst(distinct_content)
+    wall_b, flat_b, errs_b = run_burst(distinct_content)
     ok_b = all(ok for ok, _ in flat_b)
     ids_b = [cid for _, cid in flat_b]
     check("burstB_20_stores_ok", ok_b, f"ok={sum(1 for ok, _ in flat_b if ok)}/20 wall={wall_b:.1f}s")
     check("burstB_distinct_concepts", all(ids_b) and len(set(ids_b)) == 20, f"unique={len(set(ids_b))}")
+    # Diagnostic: surface any per-writer exceptions (never silently masked)
+    all_errs = [e for le in errs_a + errs_b for e in le]
+    if all_errs:
+        print(f"  INFO burst exceptions: {all_errs[:8]}")
 
     # cross-visibility under load: client 0 searches a distinctive phrase from each writer
     seen = []
@@ -191,6 +198,11 @@ def burst_phase():
     lock_words = ["database is locked", "sqlite_busy", "sqlite3.operationalerror", "lock timeout"]
     bad = [f"c{i}" for i, cl in enumerate(clients) if any(w in cl.stderr().lower() for w in lock_words)]
     check("burst_no_lock_errors", not bad, f"locks={bad or 'none'}")
+    # Surface unexpected server stderr (crashes, watchdog kills, non-lock errors)
+    for i, cl in enumerate(clients):
+        unusual = [ln for ln in cl.stderr_lines if ln.strip() and not ln.startswith("dtype not") and "Monet started" not in ln and "Storage:" not in ln and "Circle:" not in ln]
+        if unusual:
+            print(f"  INFO burst client c{i} stderr: {unusual[:4]}")
 
     # read latency under concurrent load (informational; loose bound)
     lat_all = []
