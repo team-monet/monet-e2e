@@ -11,6 +11,7 @@
 | 2026-08-10 | 1 — store resolution pipeline (dedup) | 6 (tauAttach, tauAmbiguous, edgeSimMin, nativeScoreFloor, wi=6, lexical boost H1=1.0) | 3 (RE-01..RE-03) | Priority-1 answered: dedup threshold located in per-model config map `pU` + `applyEmbedderDerivedThresholds`; decision fn `V1`. See `dedup-resolution.md` |
 | 2026-08-11 | 2 — search pipeline (`memory_search`) | 10 (+4: default limit=5, lexical tokenizer regex (Latin-only), Ar=40000 response cap, nt=256 circle-name max) | 7 (+4: RE-04..RE-07) | Full read-side flow: store.search → oT (best-obs cosine) → q1 lexical rank boost → floor filter → default-circle tiebreak; source concepts bypass floor; Korean queries get NO lexical boost (regex Latin-only). See `search-pipeline.md` |
 | 2026-08-11 | 3 — schema migration & versioning | 21 (+11: user_version ladder 0→12, supportedSchemaVersion=12, sync/graft protocol=15, first-block sentinel zT, migrated obs id scheme, content prefix, graph-backfill gate <1, first-block window [9,12), assessment `e===12`, exclusive-lock probe ±1, closure-trigger 7→8 bump) | 12 (+5: RE-08..RE-12) | No migration table — `PRAGMA user_version` scalar ladder 0→12 with idempotent `table_info`-guarded DDL; First Block pin conversion at 12 carries sentinel author; doctor/repair hardcode supported=12 (3+ places); version 10 skipped; graph backfill conflates 0→1. See `schema-migration.md` |
+| 2026-08-12 | 4 — contradiction processing (flag/mediate/dismiss) | 34 (+13: decision enum [accept-new,keep-current,dismiss], status vocab {open,resolved,dismissed}, pair-flag edge types [possible_duplicate_of,extraction_candidate], flag confidence −.3 floor .1, flag arousal +3, resolve arousal +1, disputed confidence cap .5, confidence factor .6+.1/session+.2/resolved, LT=200 detail trunc, 2s last-confirmed window, disputed-status derivation CASE, anti-guess guard condition, keep-current ≥1-prior rule) | 15 (+3: RE-13..RE-15) | Full contradiction lifecycle in source: store-side auto-flag on correction ATTACH, manual flag (kinds value-conflict/staleness/scope-conflict), internal impeachment; `resolveContradiction` holds BOTH verdict branches (status literals 'resolved'/'dismissed', no enum — RE-13 confirmed); concept status is DERIVED via recomputeNativeConceptProjection (`CASE open_count>0 THEN 'disputed' ELSE 'active'`); dismiss ignores body (E2E run-11 next-step pre-answered); pair-flag dismissal writes memory_edge.dismissed_at. See `contradiction-processing.md` |
 
 ## Module inventory
 
@@ -20,8 +21,8 @@
 | Embedder config map (`pU`/`XH`) & threshold application | dist/index.js, dist/cli.js | **DOCUMENTED** | `dedup-resolution.md` |
 | Search pipeline (`memory_search`, `search()`, `oT`/`scoreNativeConcepts`, `q1` lexical arm, `B1`/`scoreSourceConcepts`, `nativeScoreFloor`, `resolveCircle`, `EF`/`bF`) | dist/index.js | **DOCUMENTED** | `search-pipeline.md` |
 | Schema migration 4→12 | dist/index.js, dist/cli.js | **DOCUMENTED** | `schema-migration.md` |
+| Contradiction processing (`flagContradiction`, `resolveContradiction`, `dismissPossibleDuplicate`, auto-flag on correction attach, impeachment, `recomputeNativeConceptProjection` status derivation, `memory_resolve`/`memory_flag_contradiction` handlers) | dist/index.js | **DOCUMENTED** | `contradiction-processing.md` |
 | Circle routing / aliases / `*` breadth | dist/index.js | NOT STARTED | — |
-| Contradiction processing | dist/index.js | NOT STARTED | — |
 | Dashboard | dist/dashboard/* | NOT STARTED | — |
 
 ## Identified parameters (running list)
@@ -50,6 +51,19 @@
 | first-block migration window | [9, 12) → 12 | migrateFirstBlockPins | when conversion runs |
 | doctor assessment schema check | `e === 12` | `dW` cli.js | verdict gate (hardcoded) |
 | exclusive-lock probe | user_version ±1 | acquireExclusiveOwnership | repair ownership dance |
+| contradiction `decision` enum | accept-new / keep-current / dismiss | `memory_resolve` tool schema | required verdict; invalid combos rejected in `resolveContradiction` |
+| contradiction status vocab | open / resolved / dismissed | string literals (6+ fns, no enum) | row lifecycle; rows never deleted |
+| pair-flag edge types | possible_duplicate_of, extraction_candidate | `Lz` const (@662903) | `memory_edge` flags cleared by `dismissPossibleDuplicate` |
+| flag confidence penalty | −0.3, floor 0.1 | `flagContradiction` | concept confidence on dispute |
+| flag arousal delta | +3 | `flagContradiction` | dispute activation boost |
+| resolve arousal delta | +1 | `resolveContradiction` (verdict only) | mediation activation bump |
+| disputed confidence cap | 0.5 | `recomputeNativeConceptProjection` (`u = o ? min(.5, l) : l`) | open contradiction caps concept confidence |
+| confidence factor | .6 + .1·(sessions−1) + .2·resolved | same | per-concept confidence multiplier |
+| overview detail truncation | 200 (`LT`) | `getOpenContradictions` | `…[truncated]` marker |
+| last-confirmed window | 2000 ms | `recomputeNativeConceptProjection` | session-match heuristic for confirmation |
+| concept status derivation | `CASE open_count>0 THEN 'disputed' ELSE 'active' END` | recomputeNativeConceptProjection (both branches) | status column is DERIVED, not independently managed |
+| anti-guess guard | accept-new + no contradictedObsId + no auto-loser + ≥2 priors + no body → refuse | `resolveContradiction` | body required to supersede an arbitrary prior |
+| keep-current prior rule | requires ≥1 live prior predating the correction | same | else refuse ("nothing to keep") |
 
 ## Stagnation detection
 
