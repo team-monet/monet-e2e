@@ -12,6 +12,7 @@
 | 2026-08-10 (run 4, 20:00) | 11 | 100 | 0 | 1..11 all | Run 4: test11 (synthesis transition + growth curve) added — needsSynthesis appears by 2 stores, memory_synthesize clears it + records concept_revisions row, 30-obs growth curve (segments 1:1, tokens accumulate), assertions 77 → 96 |
 | 2026-08-11 (run 6) | 12 | 100 | 0 | 1..12 all | Run 6: test12 (synthesize idempotency + version semantics) added — version is DERIVED (obsCount-1, flat across calls, not unique per revision row); needsSynthesis set from creation; test05 re-run bug fixed (token-scoped unrestricted query, GR-06 extension), assertions 96 → 119 |
 | 2026-08-11 (run 8) | 13 | 100 | 0 | 1..13 all | Run 8: test13 (needsSynthesis flag lifecycle) added — flag RE-FLAGS on new attach after synthesize (store→synth→store→synth loop repeatable), synthesized body preserved + observations append, version tracks live obsCount (4→7), assertions 119 → 135 |
+| 2026-08-11 (run 9) | 14 | 100 | 0 | 1..14 all | Run 9: test14 (contradiction × needsSynthesis + accept-new body guard) added — correction observation re-arms needsSynthesis on a synthesized concept; accept-new resolve REFUSED without `body` when 2+ prior observations (anti-guess guard, boundary-probed); resolve-with-body replaces concept body + writes a 2nd concept_revisions row; `disputed` is an overview/counts signal, not a fetch-card field; assertions 135 → 160 |
 
 ## Metric definitions
 
