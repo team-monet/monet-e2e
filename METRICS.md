@@ -11,6 +11,7 @@
 | 2026-08-10 | 10 | 100 | 0 | 1..10 all | Run 3: scenario 10 (dedup growth) added, scenario 9 deepened (4-process burst, dedup-under-load), test05 re-run bug fixed (GR-06), assertions 59 → 77 |
 | 2026-08-10 (run 4, 20:00) | 11 | 100 | 0 | 1..11 all | Run 4: test11 (synthesis transition + growth curve) added — needsSynthesis appears by 2 stores, memory_synthesize clears it + records concept_revisions row, 30-obs growth curve (segments 1:1, tokens accumulate), assertions 77 → 96 |
 | 2026-08-11 (run 6) | 12 | 100 | 0 | 1..12 all | Run 6: test12 (synthesize idempotency + version semantics) added — version is DERIVED (obsCount-1, flat across calls, not unique per revision row); needsSynthesis set from creation; test05 re-run bug fixed (token-scoped unrestricted query, GR-06 extension), assertions 96 → 119 |
+| 2026-08-11 (run 8) | 13 | 100 | 0 | 1..13 all | Run 8: test13 (needsSynthesis flag lifecycle) added — flag RE-FLAGS on new attach after synthesize (store→synth→store→synth loop repeatable), synthesized body preserved + observations append, version tracks live obsCount (4→7), assertions 119 → 135 |
 
 ## Metric definitions
 
