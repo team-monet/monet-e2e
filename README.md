@@ -11,6 +11,7 @@ This repository continuously exercises Monet against a real server process and a
 ├── harness/          # reusable test harness
 │   ├── mcp_client.py          # zero-dependency MCP stdio client (env-configurable)
 │   ├── run_all.py             # suite runner: runs every test in ../tests/
+│   └── run_suite.sh           # cron/CI wrapper: exports local defaults (env-overridable)
 │   └── make_fixture_schema4.py# generator for the old-schema (1.2.4) fixture
 ├── tests/            # one self-contained scenario per file (testNN_*.py)
 ├── diary/            # run-by-run narrative (what, why, result, next)
@@ -57,6 +58,15 @@ export MONET_NODE_PATH=/path/to/node/bin # optional: node bin dir to prepend to 
 export MONET_TEST_DIR=$HOME/.monet-test  # optional: where test data lives (default: ~/.monet-test)
 
 python3 harness/run_all.py
+```
+
+**Cron / non-interactive shells:** a bare cron environment has no interactive
+PATH and no `monet` binary on it, so `MONET_CLI` must be exported or the suite
+fails with `No such file or directory: 'monet'`. Use the convenience wrapper —
+it exports machine-local defaults for all variables and is fully overridable:
+
+```sh
+harness/run_suite.sh
 ```
 
 Every test spawns its own `monet start -d <dir>` server process against the isolated test DB. The suite runner exits non-zero if any test fails.
