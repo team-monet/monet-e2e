@@ -12,6 +12,7 @@
 | 2026-08-11 | 2 — search pipeline (`memory_search`) | 10 (+4: default limit=5, lexical tokenizer regex (Latin-only), Ar=40000 response cap, nt=256 circle-name max) | 7 (+4: RE-04..RE-07) | Full read-side flow: store.search → oT (best-obs cosine) → q1 lexical rank boost → floor filter → default-circle tiebreak; source concepts bypass floor; Korean queries get NO lexical boost (regex Latin-only). See `search-pipeline.md` |
 | 2026-08-11 | 3 — schema migration & versioning | 21 (+11: user_version ladder 0→12, supportedSchemaVersion=12, sync/graft protocol=15, first-block sentinel zT, migrated obs id scheme, content prefix, graph-backfill gate <1, first-block window [9,12), assessment `e===12`, exclusive-lock probe ±1, closure-trigger 7→8 bump) | 12 (+5: RE-08..RE-12) | No migration table — `PRAGMA user_version` scalar ladder 0→12 with idempotent `table_info`-guarded DDL; First Block pin conversion at 12 carries sentinel author; doctor/repair hardcode supported=12 (3+ places); version 10 skipped; graph backfill conflates 0→1. See `schema-migration.md` |
 | 2026-08-12 | 4 — contradiction processing (flag/mediate/dismiss) | 34 (+13: decision enum [accept-new,keep-current,dismiss], status vocab {open,resolved,dismissed}, pair-flag edge types [possible_duplicate_of,extraction_candidate], flag confidence −.3 floor .1, flag arousal +3, resolve arousal +1, disputed confidence cap .5, confidence factor .6+.1/session+.2/resolved, LT=200 detail trunc, 2s last-confirmed window, disputed-status derivation CASE, anti-guess guard condition, keep-current ≥1-prior rule) | 15 (+3: RE-13..RE-15) | Full contradiction lifecycle in source: store-side auto-flag on correction ATTACH, manual flag (kinds value-conflict/staleness/scope-conflict), internal impeachment; `resolveContradiction` holds BOTH verdict branches (status literals 'resolved'/'dismissed', no enum — RE-13 confirmed); concept status is DERIVED via recomputeNativeConceptProjection (`CASE open_count>0 THEN 'disputed' ELSE 'active'`); dismiss ignores body (E2E run-11 next-step pre-answered); pair-flag dismissal writes memory_edge.dismissed_at. See `contradiction-processing.md` |
+| 2026-08-12 | 5 — circle routing & aliases lifecycle | 42 (+8: `W`='*' reserved global-breadth marker, `rd`='legacy-star' legacy-* dest base, alias status vocab {active,archived} self-row archive, listCircles LIMIT 20, merge resolution {auto,forceNew} default forceNew, legacy dest suffix -2..N, 3 gate-generation triggers on alias insert/update/delete, single-hop alias resolution rule) | 19 (+4: RE-16..RE-19) | Circles are IMPLICIT namespaces (no registry table); `circle_aliases` is the only circle-side table (alias/archive rows). `resolveCircle` = single-hop active-alias lookup, applied at every circle-scoped entry point. rename/merge write alias from→to + repoint to_name rows (graph kept flat); merge HARD-DELETES workstreams (RE-19); archive = self-alias status='archived' hiding store-wide recall only (RE-16 explicit-circle bypass, RE-17 no store guard); renameCircle re-targets existing alias rows (RE-18); legacy-`*` auto-migrated on open to legacy-star[-N]. See `circle-routing.md` |
 
 ## Module inventory
 
@@ -22,7 +23,7 @@
 | Search pipeline (`memory_search`, `search()`, `oT`/`scoreNativeConcepts`, `q1` lexical arm, `B1`/`scoreSourceConcepts`, `nativeScoreFloor`, `resolveCircle`, `EF`/`bF`) | dist/index.js | **DOCUMENTED** | `search-pipeline.md` |
 | Schema migration 4→12 | dist/index.js, dist/cli.js | **DOCUMENTED** | `schema-migration.md` |
 | Contradiction processing (`flagContradiction`, `resolveContradiction`, `dismissPossibleDuplicate`, auto-flag on correction attach, impeachment, `recomputeNativeConceptProjection` status derivation, `memory_resolve`/`memory_flag_contradiction` handlers) | dist/index.js | **DOCUMENTED** | `contradiction-processing.md` |
-| Circle routing / aliases / `*` breadth | dist/index.js | NOT STARTED | — |
+| Circle routing & aliases (`resolveCircle`/`resolveCircleName`, `circle_aliases` table + triggers, `renameCircle`, `mergeCircle`, `archiveCircle`/`unarchiveCircle`, `listCircles`, `moveCircleScopedTables`, `chooseLegacyStarDestination`, `migrateLegacyStarCircle`, `memory_circle_manage` handler, `*`/`W` reserved marker + `skeleton_breadth='global'`) | dist/index.js | **DOCUMENTED** | `circle-routing.md` |
 | Dashboard | dist/dashboard/* | NOT STARTED | — |
 
 ## Identified parameters (running list)
@@ -64,6 +65,14 @@
 | concept status derivation | `CASE open_count>0 THEN 'disputed' ELSE 'active' END` | recomputeNativeConceptProjection (both branches) | status column is DERIVED, not independently managed |
 | anti-guess guard | accept-new + no contradictedObsId + no auto-loser + ≥2 priors + no body → refuse | `resolveContradiction` | body required to supersede an arbitrary prior |
 | keep-current prior rule | requires ≥1 live prior predating the correction | same | else refuse ("nothing to keep") |
+| `W` (circle marker) | `"*"` | const `W` | reserved global-breadth marker — never a circle; concepts/workstreams/sources/aliases/rename/merge/archive refuse it; `memory_declare circle:'*'` → `skeleton_breadth='global'` |
+| `rd` (legacy dest) | `"legacy-star"` | const `rd` | legacy-`*` migration destination base name |
+| alias status vocab | `active`, `archived` | `circle_aliases.status` | active = alias/rename target; archived = self-row archive marker; rows never deleted by user ops |
+| `listCircles` cap | 20 | `listCircles` | `LIMIT 20`, lastActivity DESC, circle ASC |
+| merge resolution enum | `auto` / `forceNew` (default) | `mergeCircle` | auto dedups; forceNew keeps distinct + flags possible_duplicate_of |
+| legacy dest suffix | `-2`, `-3`, … | `chooseLegacyStarDestination` | collision-avoidance loop from `rd` |
+| gate alias triggers | 3 (insert / update OF to_name,status / delete) | schema DDL | `circle_aliases` mutations bump `gate_meta.generation` |
+| alias resolution depth | 1 (single hop) | `resolveCircle` | `a→b→c` does NOT resolve to c; rename/merge repoint keeps graph flat |
 
 ## Stagnation detection
 
