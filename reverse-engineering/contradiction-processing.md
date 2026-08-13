@@ -247,6 +247,32 @@ Operates on `memory_edge`, NOT `contradictions`:
   `UPDATE memory_edge SET dismissed_at = ?, dismissed_by = ?, sync_updated_at = ? WHERE scope = ? AND type IN (possible_duplicate_of, extraction_candidate) AND dismissed_at IS NULL AND (bidirectional pair)`.
 - Ack: `{action:"pair-flags-dismissed", conceptAId, conceptBId, rowsUpdated}`.
 
+### 4a. Retire guard — undismissed pair flags block `memory_retire` (Finding 21, E2E run 17)
+
+E2E-verified 2026-08-13 (test20): `memory_retire` on a concept that carries an
+undismissed `possible_duplicate_of` / `extraction_candidate` pair flag is
+REFUSED, not auto-closed:
+
+```
+cannot retire <id>: it carries 1 undismissed pair flag(s) (a duplicate or
+extraction question about it and another memory), which retiring would erase
+rather than answer — paired with <partner> (possible_duplicate_of) — withdraw
+it through memory_resolve with conceptAId="<id>" and conceptBId set to a
+partner above
+```
+
+- The refusal fires BEFORE the `retireConcept` auto-close of open contradiction
+  rows (section 7): the concept is not retired, no rows are touched.
+- Recovery = dismiss the pair first via `memory_resolve{conceptAId, conceptBId}`
+  (section 4) → ack `{action:"pair-flags-dismissed", rowsUpdated:2}` → then
+  `memory_retire` succeeds.
+- Rationale (from the error text): retiring would "erase rather than answer"
+  the open duplicate/extraction question — the guard preserves the pair
+  question for a human verdict.
+- Determinism note: two same-circle `memory_store` calls with distinct content
+  but a shared token routinely produce a `possible_duplicate_of` pair flag
+  (observed 3/3 in run 17), so the guard is easy to trigger in tests.
+
 ## 5. Status derivation & confidence — `recomputeNativeConceptProjection` @937411
 
 Called at the end of every resolve/dismiss (and many other mutation paths). Derives:
@@ -320,3 +346,8 @@ Called at the end of every resolve/dismiss (and many other mutation paths). Deri
   still returns a concept card (recompute + mt run for dismiss too).
 - Run-11 next-step #2 pre-answer: `dismiss` WITH a `body` is accepted by the handler and
   **silently ignored** by `resolveContradiction` (no revision, no validation error).
+- test20 (run 17): retire-guard Finding 21 — `memory_retire` REFUSED on a concept with an
+  undismissed pair flag; `memory_resolve{conceptAId,conceptBId}` → `pair-flags-dismissed`
+  (rowsUpdated 2) → retire succeeds. First E2E of the pair-flag dismissal path
+  (section 4) end-to-end, plus live dashboard filter delta (concepts 2→1,
+  includeRetired=1 → 2).
