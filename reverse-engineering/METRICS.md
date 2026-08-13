@@ -14,6 +14,7 @@
 | 2026-08-12 | 4 — contradiction processing (flag/mediate/dismiss) | 34 (+13: decision enum [accept-new,keep-current,dismiss], status vocab {open,resolved,dismissed}, pair-flag edge types [possible_duplicate_of,extraction_candidate], flag confidence −.3 floor .1, flag arousal +3, resolve arousal +1, disputed confidence cap .5, confidence factor .6+.1/session+.2/resolved, LT=200 detail trunc, 2s last-confirmed window, disputed-status derivation CASE, anti-guess guard condition, keep-current ≥1-prior rule) | 15 (+3: RE-13..RE-15) | Full contradiction lifecycle in source: store-side auto-flag on correction ATTACH, manual flag (kinds value-conflict/staleness/scope-conflict), internal impeachment; `resolveContradiction` holds BOTH verdict branches (status literals 'resolved'/'dismissed', no enum — RE-13 confirmed); concept status is DERIVED via recomputeNativeConceptProjection (`CASE open_count>0 THEN 'disputed' ELSE 'active'`); dismiss ignores body (E2E run-11 next-step pre-answered); pair-flag dismissal writes memory_edge.dismissed_at. See `contradiction-processing.md` |
 | 2026-08-12 | 5 — circle routing & aliases lifecycle | 42 (+8: `W`='*' reserved global-breadth marker, `rd`='legacy-star' legacy-* dest base, alias status vocab {active,archived} self-row archive, listCircles LIMIT 20, merge resolution {auto,forceNew} default forceNew, legacy dest suffix -2..N, 3 gate-generation triggers on alias insert/update/delete, single-hop alias resolution rule) | 19 (+4: RE-16..RE-19) | Circles are IMPLICIT namespaces (no registry table); `circle_aliases` is the only circle-side table (alias/archive rows). `resolveCircle` = single-hop active-alias lookup, applied at every circle-scoped entry point. rename/merge write alias from→to + repoint to_name rows (graph kept flat); merge HARD-DELETES workstreams (RE-19); archive = self-alias status='archived' hiding store-wide recall only (RE-16 explicit-circle bypass, RE-17 no store guard); renameCircle re-targets existing alias rows (RE-18); legacy-`*` auto-migrated on open to legacy-star[-N]. See `circle-routing.md` |
 | 2026-08-13 | 6 — dashboard (server + client) | 54 (+12: dashboard port default 7373, Host allowlist {127.0.0.1,localhost,[::1]}, snapshot-per-request (full SQLite backup + unlink; temp dir monet-dash-* under os.tmpdir()), retired filter `et`='status != retired', source detection `t0`, graphDensity formula liveEdges/NULLIF(concepts,0), sourceBackoff base 30000 ms ×2 cap=interval, attempt-events window 128, GRAPH_NODE_LIMIT=800, clustering {K=14,min=40,max=160,MAX_ITER=1500}, localStorage monet-dash:v1/LS_SCHEMA_V=8, graph charge/gravity consts) | 22 (+3: RE-20..RE-22) | Last undocumented module → ALL 6 DOCUMENTED. `monet dashboard` = local-only read-only vanilla-JS SPA; every API call snapshots the whole DB (better-sqlite3 backup, readonly open) → query → unlink; no write endpoints; Host-allowlist 403; browser auto-open. Verified LIVE: empty-store VZ shape, E2E store counts (990 concepts / 2978 obs / 5751 edges / 13 open contra / density 5.81), includeRetired delta, 403/404 shapes, snapshot+exit cleanup, 0.44–0.51 s per request on 75 MB store (RE-20). See `dashboard.md` |
+| 2026-08-13 | 7 — sources & sync machinery | 78 (+24: source type enum repo-md/git-md, writeBack none/pull-request, refresh manual/interval + default interval 3600s, freshness window manual 86400s / interval max(60,2×interval), backoff CP base 30000 ×2 cap=interval, jitter Ww sha256%-deterministic, initial-delay min(30000,10% interval), run state enum 7, run result enum success/failed/partial, snapshot state enum 4, lifecycle enum active/tombstoned, content hash iP monet-src-content/v1:sha256:, ingest domain nP monet-src-ingest/v1, op domain oP monet-src-op/v2, content-model v5 Zd, parse-deadline cap CS=100000, chunk write_state enum 4, chunk lifecycle enum 3, cleanup-item kind enum 3, attempt-event kind enum 4, removal state enum 3, auth env vars MONET_CALLER_ID/MONET_PROJECT_ID, git-md allocator sourceStorageDir/git-md/<id>/repository.git, transport schemes https/ssh + PR-writeBack github.com-only, source-id regex 1-64 lowercase/interior-hyphens, live-run unique index) | 25 (+3: RE-23..RE-25) | New module → 7 DOCUMENTED. Sources = registered external Markdown repos scanned/chunked/hashed/materialized into concepts, published as a sealed read-only snapshot (`current` symlink + realpath escape check). Auth is server-bound via env (`MONET_CALLER_ID`/`MONET_PROJECT_ID`) matching per-source `allowed_caller_ids`×`allowed_project_ids`. Fenced/tokenized/hash-checked publish pipeline (beginRun→stageManifest→beginActivation→publishRun→recordVerification) + scheduler with lease + exp backoff + deterministic jitter. 16 source_* tables. See `sources-sync.md` |
 
 ## Module inventory
 
@@ -26,6 +27,7 @@
 | Contradiction processing (`flagContradiction`, `resolveContradiction`, `dismissPossibleDuplicate`, auto-flag on correction attach, impeachment, `recomputeNativeConceptProjection` status derivation, `memory_resolve`/`memory_flag_contradiction` handlers) | dist/index.js | **DOCUMENTED** | `contradiction-processing.md` |
 | Circle routing & aliases (`resolveCircle`/`resolveCircleName`, `circle_aliases` table + triggers, `renameCircle`, `mergeCircle`, `archiveCircle`/`unarchiveCircle`, `listCircles`, `moveCircleScopedTables`, `chooseLegacyStarDestination`, `migrateLegacyStarCircle`, `memory_circle_manage` handler, `*`/`W` reserved marker + `skeleton_breadth='global'`) | dist/index.js | **DOCUMENTED** | `circle-routing.md` |
 | Dashboard (server: `dashboard` command wiring, snapshot isolation Hb, read-only query `_t`, HTTP routes, Host allowlist, /api/graph|entities|sources payloads + all Ue SQL, source-derived fns i0/a0/o0/s0; client: filters, force layout, GRAPH_NODE_LIMIT, clustering, localStorage persistence) | dist/cli.js (bundle), dist/dashboard/{index.html,app.js,style.css} | **DOCUMENTED** | `dashboard.md` |
+| Sources & sync (source registry `rP`, source ledger `LP`, sync engines `Jd`/`gT`/`mT`/`iU`/`rU`, scheduler `$P`/`Rm`/`CP`/`Ww`, content hashing `eg`/`Qm`/`Nm`/`DS`, sealed path `ni`/`rT`, auth context `J4`/`requireConnectorContext`; 4 MCP tools source_list/status/path/sync; CLI `source add/list/show/remove`; 16 source_* tables) | dist/index.js, dist/cli.js | **DOCUMENTED** | `sources-sync.md` |
 
 ## Identified parameters (running list)
 
@@ -86,6 +88,32 @@
 | clustering consts | K=14, min=40, max=160, MAX_ITER=1500 | app.js | large-graph cluster rendering |
 | localStorage schema | `monet-dash:v1`, `LS_SCHEMA_V`=8 | app.js | filter/camera/pin persistence (v8 migration strips poisoned cam_*) |
 | graph layout consts | charge `max(-6000,-1600−22n)`, gravity `all?0.007:0.06`, linkDist 130, alphaDecay .015, velDecay .4 | app.js | force-layout tuning |
+| source type enum | `repo-md` \| `git-md` | `knowledge_sources.type` CHECK | two registered source kinds |
+| writeBack enum | `none` \| `pull-request` (PR only for `github.com` git-md) | `canonicalize`/schema | write-back policy |
+| refresh mode | `manual` \| `interval` (CLI default interval, 3600 s) | `QM`/`canonicalize` | auto-sync cadence |
+| freshness window | manual 86400 s; interval `max(60, 2×interval)` | `sourceStatus` | fresh/stale cutoff |
+| backoff `CP` | base 30 000 ms, ×2/failure, cap = interval | `CP` | failure retry delay |
+| jitter `Ww` | `sha256(key).readUInt32BE(0) % (max+1)`, key=`id␀configVer␀fence␀attemptSeq` | `Ww` | deterministic schedule spread |
+| initial-delay | `min(30000, 10%·interval)` | `Rm` | first-attempt defer |
+| run state enum | scanning/staging/activating/published/cleaning/cleaned/aborted | `source_sync_runs.state` | run lifecycle |
+| run result enum | success/failed/partial | `source_sync_runs.result` | terminal result |
+| snapshot state enum | staged/active/superseded/aborted | `source_snapshots.state` | snapshot lifecycle |
+| source lifecycle | active/tombstoned | `knowledge_sources.lifecycle` | tombstoned ids not reusable |
+| content hash prefix `iP` | `monet-src-content/v1:sha256:` | `eg` | per-chunk content id |
+| ingest hash domain `nP` | `monet-src-ingest/v1` | `Qm` | ingest-config hash |
+| op hash domain `oP` | `monet-src-op/v2` | `Nm` | binding generation |
+| content-model version `Zd` | `"v5"` | `Qm`/`scan_config_version` | chunker version gate |
+| parse-deadline cap `CS` | 100 000 | `Lt`/`$S` | frontmatter parse iteration cap |
+| chunk write_state enum | intent/engine-written/committed/skipped | `source_staged_chunks` | write-back pipeline |
+| chunk lifecycle enum | active/superseded/deleted | `source_chunks` | chunk retirement |
+| cleanup-item kind enum | retire-absent/reconcile-orphan/quarantine-non-authorizing | `source_cleanup_items` | post-publish cleanup |
+| attempt-event kind enum | run/verification/pre-pin-failure/invocation | `source_attempt_events` | status signals |
+| removal state enum | retiring/files-revoked/complete | `source_removals` | tombstone removal |
+| auth env vars | `MONET_CALLER_ID` + `MONET_PROJECT_ID` | `J4` | server-bound identity (both required) |
+| git-md allocator | `sourceStorageDir/git-md/<id>/repository.git` | `canonicalize` | Monet-owned local path |
+| transport policy | schemes ⊆ {https,ssh}, hosts | `KM`/`wm` | git-md remote allowlist |
+| source-id regex | 1–64 lowercase letters/digits/interior hyphens | `jM`/`WM` | portable id constraint |
+| live-run uniqueness | one run per source in scanning/staging/activating/cleaning | partial unique index | single in-flight sync |
 
 ## Stagnation detection
 
