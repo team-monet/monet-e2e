@@ -15,6 +15,7 @@
 | 2026-08-12 | 5 — circle routing & aliases lifecycle | 42 (+8: `W`='*' reserved global-breadth marker, `rd`='legacy-star' legacy-* dest base, alias status vocab {active,archived} self-row archive, listCircles LIMIT 20, merge resolution {auto,forceNew} default forceNew, legacy dest suffix -2..N, 3 gate-generation triggers on alias insert/update/delete, single-hop alias resolution rule) | 19 (+4: RE-16..RE-19) | Circles are IMPLICIT namespaces (no registry table); `circle_aliases` is the only circle-side table (alias/archive rows). `resolveCircle` = single-hop active-alias lookup, applied at every circle-scoped entry point. rename/merge write alias from→to + repoint to_name rows (graph kept flat); merge HARD-DELETES workstreams (RE-19); archive = self-alias status='archived' hiding store-wide recall only (RE-16 explicit-circle bypass, RE-17 no store guard); renameCircle re-targets existing alias rows (RE-18); legacy-`*` auto-migrated on open to legacy-star[-N]. See `circle-routing.md` |
 | 2026-08-13 | 6 — dashboard (server + client) | 54 (+12: dashboard port default 7373, Host allowlist {127.0.0.1,localhost,[::1]}, snapshot-per-request (full SQLite backup + unlink; temp dir monet-dash-* under os.tmpdir()), retired filter `et`='status != retired', source detection `t0`, graphDensity formula liveEdges/NULLIF(concepts,0), sourceBackoff base 30000 ms ×2 cap=interval, attempt-events window 128, GRAPH_NODE_LIMIT=800, clustering {K=14,min=40,max=160,MAX_ITER=1500}, localStorage monet-dash:v1/LS_SCHEMA_V=8, graph charge/gravity consts) | 22 (+3: RE-20..RE-22) | Last undocumented module → ALL 6 DOCUMENTED. `monet dashboard` = local-only read-only vanilla-JS SPA; every API call snapshots the whole DB (better-sqlite3 backup, readonly open) → query → unlink; no write endpoints; Host-allowlist 403; browser auto-open. Verified LIVE: empty-store VZ shape, E2E store counts (990 concepts / 2978 obs / 5751 edges / 13 open contra / density 5.81), includeRetired delta, 403/404 shapes, snapshot+exit cleanup, 0.44–0.51 s per request on 75 MB store (RE-20). See `dashboard.md` |
 | 2026-08-13 | 7 — sources & sync machinery | 78 (+24: source type enum repo-md/git-md, writeBack none/pull-request, refresh manual/interval + default interval 3600s, freshness window manual 86400s / interval max(60,2×interval), backoff CP base 30000 ×2 cap=interval, jitter Ww sha256%-deterministic, initial-delay min(30000,10% interval), run state enum 7, run result enum success/failed/partial, snapshot state enum 4, lifecycle enum active/tombstoned, content hash iP monet-src-content/v1:sha256:, ingest domain nP monet-src-ingest/v1, op domain oP monet-src-op/v2, content-model v5 Zd, parse-deadline cap CS=100000, chunk write_state enum 4, chunk lifecycle enum 3, cleanup-item kind enum 3, attempt-event kind enum 4, removal state enum 3, auth env vars MONET_CALLER_ID/MONET_PROJECT_ID, git-md allocator sourceStorageDir/git-md/<id>/repository.git, transport schemes https/ssh + PR-writeBack github.com-only, source-id regex 1-64 lowercase/interior-hyphens, live-run unique index) | 25 (+3: RE-23..RE-25) | New module → 7 DOCUMENTED. Sources = registered external Markdown repos scanned/chunked/hashed/materialized into concepts, published as a sealed read-only snapshot (`current` symlink + realpath escape check). Auth is server-bound via env (`MONET_CALLER_ID`/`MONET_PROJECT_ID`) matching per-source `allowed_caller_ids`×`allowed_project_ids`. Fenced/tokenized/hash-checked publish pipeline (beginRun→stageManifest→beginActivation→publishRun→recordVerification) + scheduler with lease + exp backoff + deterministic jitter. 16 source_* tables. See `sources-sync.md` |
+| 2026-08-14 | 9 — gates/conformance/journal + sync/graft (FIRST module documented from the readable TS source) | 32 (+32: 3 schema CHECK safety boundaries, 9 enum unions, 6 stage_lookup caps, 5 gate-mirror/journal consts, SYNC_PAYLOAD_PROTOCOL_VERSION=15, v8 row-convergence clock, user_version rung names 1..12, RETIREMENT_PAIR_FLAG_NAMED_MAX=3, PAIR_FLAG_EDGE_TYPES) | 3 (+3: RE-26..RE-28) | Gates/stages/rule-bindings + deterministic trigger-pattern matcher + gate journal + conformance "cheap half" documented from READABLE TS (`@team-monet/core` v0.9.0) not minified dist; sync/graft payload ceiling reconciled (`Gf`=15). Also created the missing `ISSUES.md` (RE-01..RE-28). See `gates.md` + `sync-graft.md` |
 
 ## Module inventory
 
@@ -28,6 +29,8 @@
 | Circle routing & aliases (`resolveCircle`/`resolveCircleName`, `circle_aliases` table + triggers, `renameCircle`, `mergeCircle`, `archiveCircle`/`unarchiveCircle`, `listCircles`, `moveCircleScopedTables`, `chooseLegacyStarDestination`, `migrateLegacyStarCircle`, `memory_circle_manage` handler, `*`/`W` reserved marker + `skeleton_breadth='global'`) | dist/index.js | **DOCUMENTED** | `circle-routing.md` |
 | Dashboard (server: `dashboard` command wiring, snapshot isolation Hb, read-only query `_t`, HTTP routes, Host allowlist, /api/graph\|entities\|sources payloads + all Ue SQL, source-derived fns i0/a0/o0/s0; client: filters, force layout, GRAPH_NODE_LIMIT, clustering, localStorage persistence) | dist/cli.js (bundle), dist/dashboard/{index.html,app.js,style.css} | **DOCUMENTED** | `dashboard.md` |
 | Sources & sync (source registry `rP`, source ledger `LP`, sync engines `Jd`/`gT`/`mT`/`iU`/`rU`, scheduler `$P`/`Rm`/`CP`/`Ww`, content hashing `eg`/`Qm`/`Nm`/`DS`, sealed path `ni`/`rT`, auth context `J4`/`requireConnectorContext`; 4 MCP tools source_list/status/path/sync; CLI `source add/list/show/remove`; 16 source_* tables) | dist/index.js, dist/cli.js | **DOCUMENTED** | `sources-sync.md` |
+| Gates / conformance / gate journal (`stages`, `rule_bindings`, `gate_events`, `gate_event_stages`, `gate_meta`; trigger-pattern matcher `matchesTriggerPattern`, `gateQuery`/`evaluateGate`, `stageLookup`/`evaluateStageLookup`, gate mirror `materializeGateMirror`/`inspectSidecar`, `GATE_MIRROR_FORMAT`=4; gate journal `gate-journal.jsonl`; conformance `computeConformance`/`tallyByRule`/`retirementCandidates`) | src/gates.ts, src/gate-journal.ts, src/conformance.ts | **DOCUMENTED** | `gates.md` |
+| Sync & graft protocol (`GraftPayload` v8/v15, `exportDelta`, `graftRows`, `batchDedup`, `initSyncIdentity`; `SYNC_PAYLOAD_PROTOCOL_VERSION`=15; v8 row-convergence clock `sync_revision`/`sync_writer`; native-only validation; embedder-mismatch rejection; multi-writer `edgeComponents`/`deletions`/`conceptActivity`/`tombstones`/`restorations`) | src/sync-types.ts, engine.ts | **DOCUMENTED** | `sync-graft.md` |
 
 ## Identified parameters (running list)
 
@@ -114,6 +117,38 @@
 | transport policy | schemes ⊆ {https,ssh}, hosts | `KM`/`wm` | git-md remote allowlist |
 | source-id regex | 1–64 lowercase letters/digits/interior hyphens | `jM`/`WM` | portable id constraint |
 | live-run uniqueness | one run per source in scanning/staging/activating/cleaning | partial unique index | single in-flight sync |
+| `RuleSeverity` | `advisory` \| `blocking` | gates.ts | failure MODE: advisory injects, blocking denies |
+| `RuleScope` | `domain` \| `agent` | gates.ts | domain transfers across models; agent = per-model compensation (carries model_tag) |
+| `StageOrigin` | `correction` \| `declaration` \| `import` | gates.ts | how a stage was born |
+| `RuleBindingOrigin` | `correction` \| `declaration` \| `projection` \| `import` | gates.ts | how a rule was bound; `projection` has no write path yet |
+| `GateJournalMouth` | `host-hook` \| `gate-cli` \| `core-gate` \| `stage-lookup` \| `declare-check` | gate-journal.ts | which surface wrote the journal event |
+| `GateJournalClaimType` | `source-observed` \| `parsed` \| `inferred` \| `corroborated` \| `unavailable` | gate-journal.ts | HOW we know what an event claims |
+| `GateJournalDisposition` | `silent` \| `stage-hit-no-rules` \| `advisory` \| `deny` \| `overflow` \| `declined:*` | gate-journal.ts | what a governing mechanism did |
+| `ConformanceVerdict` | `changed` \| `conformed` \| `breached` \| `no-effect` \| `vacuous` | conformance.ts | §4's verdict vocabulary |
+| gate `matcher` | `mechanical` \| `recognized` | gates.ts | gateQuery (pattern fire) vs stageLookup (agent named a stage) |
+| `MAX_STAGE_PATTERNS` | 32 | gates.ts | pattern-count cap per stage |
+| `STAGE_NAME_MAX_CHARS` | 500 | gates.ts | stage name cap (normalized, UNIQUE) |
+| `MODEL_TAG_MAX_CHARS` | 200 | gates.ts | agent-scope model-tag cap |
+| `STAGE_LOOKUP_RULES_CAP` | 200 | gates.ts | rules returned by stage_lookup |
+| `STAGE_LOOKUP_BODY_CAP` | 6000 | gates.ts | stage_lookup rule-body cap |
+| `STAGE_LOOKUP_REASON_CAP` | 1200 | gates.ts | stage_lookup reason cap |
+| `STAGE_LOOKUP_OUTLINE_CAP` | 500 | gates.ts | stage_lookup outline cap |
+| `STAGE_INDEX_CAP` | 2000 | gates.ts | stage_lookup stage-index cap |
+| `DISPUTED_PARENTS_CAP` | 8 | gates.ts | rule-outline disputed-parents cap |
+| `GATE_MIRROR_FORMAT` | 4 | gates.ts | gate mirror (sidecar) file format |
+| `GATE_JOURNAL_FORMAT` | 1 | gate-journal.ts | journal line schema version |
+| `GATE_JOURNAL_MAX_BYTES` | 64 MiB (2x on disk) | gate-journal.ts | journal rotation cap |
+| `GATE_JOURNAL_CONTEXT_MAX_CHARS` | 2048 | gate-journal.ts | verbatim context ceiling (else sha256+len) |
+| `ROTATE_LOCK_STALE_MS` | 60 000 | gate-journal.ts | rotation-lock staleness clearing |
+| blocking-is-declaration-only | `CHECK (severity != 'blocking' OR origin = 'declaration')` | GATE_SCHEMA_SQL | deny power cannot be self-assigned (schema-level) |
+| breadth-is-declaration-only | `CHECK (circle != '*' OR origin IN ('declaration','correction'))` | GATE_SCHEMA_SQL | global reach cannot be minted by import/capture |
+| agent-scope-implies-tag | `CHECK ((scope = 'agent') = (model_tag IS NOT NULL))` | GATE_SCHEMA_SQL | per-model compensations carry a tag |
+| `SYNC_PAYLOAD_PROTOCOL_VERSION` | 15 (changelog 11→15) | engine.ts | graft payload ceiling (the `Gf`=15 unknown, now closed) |
+| user_version rung names | 1 graph, 2 temporal, 3 arousal, 4 first_block, 5 sync, 6 source-concept, 7 source-registry, 8 sync-closure, 9 source-ledger, 11 source-file-concept, 12 first-block-retirement (10 skipped) | engine.ts | named ladder rungs |
+| `RETIREMENT_PAIR_FLAG_NAMED_MAX` | 3 | engine.ts | pair partners named before "and N more" |
+| `PAIR_FLAG_EDGE_TYPES` | `possible_duplicate_of`, `extraction_candidate` | engine.ts | pair-flag set treated alike everywhere |
+| sync row-convergence clock | `(sync_revision, sync_writer)` | sync-types.ts | v8 mutable-row convergence (house pattern) |
+| `EmbedderMismatchError` | thrown on embedderModelId mismatch | graftRows | cross-space graft rejected, never silently corrupted |
 
 ## Stagnation detection
 
