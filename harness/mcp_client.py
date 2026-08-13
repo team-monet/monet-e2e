@@ -39,6 +39,7 @@ class MonetClient:
         self.data_dir = data_dir
         self.next_id = 1
         self.stderr_lines = []
+        self.stray_stdout_lines = []
         self._reader = threading.Thread(target=self._drain_stderr, daemon=True)
         self._reader.start()
 
@@ -82,7 +83,9 @@ class MonetClient:
             try:
                 resp = json.loads(line)
             except json.JSONDecodeError:
-                # non-protocol banner line — log and skip
+                # non-protocol banner line — log and skip, but remember it so
+                # tests can assert the protocol stream stayed clean.
+                self.stray_stdout_lines.append(line)
                 print(f"[stray stdout] {line}", file=sys.stderr)
                 continue
             if resp.get("id") != mid:

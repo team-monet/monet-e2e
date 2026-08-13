@@ -49,12 +49,15 @@ def main():
         check("expected_tools_present", not missing, f"missing={missing or 'none'}")
         extra = names - EXPECTED
         check("no_unexpected_tools", not extra, f"extra={extra or 'none'}")
-        check("clean_stdout_protocol", "stray stdout" not in "", "no banner pollution in protocol stream")
+        # The protocol stream (stdout) must contain only JSON-RPC responses —
+        # any non-JSON banner line is recorded by the client as a stray.
+        check("clean_stdout_protocol", not c.stray_stdout_lines,
+              f"stray={c.stray_stdout_lines or 'none'}")
     finally:
         c.close()
 
-    # server should exit cleanly after stdin close
-    check("server_exit_clean", c.proc.returncode in (0, None) or c.proc.returncode is not None,
+    # server should exit cleanly (rc 0) after stdin close
+    check("server_exit_clean", c.proc.returncode == 0,
           f"rc={c.proc.returncode}")
 
     print(f"\nRESULT: {len(PASS)} passed, {len(FAIL)} failed")

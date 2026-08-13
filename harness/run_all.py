@@ -14,6 +14,21 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 TESTS = sorted(glob.glob(os.path.join(HERE, "..", "tests", "test??_*.py")))
 
 
+def _result_line(stdout):
+    """Extract the per-test `RESULT:` summary line, wherever it appears.
+
+    Some tests print diagnostic lines (e.g. `OBSERVED versions: [...]`) AFTER
+    their `RESULT:` line, so simply taking the last line misreports the
+    summary. Grep for the `RESULT:` prefix instead; fall back to the last
+    non-empty line if no `RESULT:` line is present.
+    """
+    lines = [ln for ln in stdout.strip().splitlines() if ln.strip()]
+    for ln in reversed(lines):
+        if ln.startswith("RESULT:"):
+            return ln
+    return lines[-1] if lines else ""
+
+
 def main():
     total = passed = 0
     results = []
@@ -25,7 +40,7 @@ def main():
         ok = p.returncode == 0
         if ok:
             passed += 1
-        results.append((os.path.basename(t), ok, dt, p.stdout.strip().splitlines()[-1] if p.stdout.strip() else ""))
+        results.append((os.path.basename(t), ok, dt, _result_line(p.stdout)))
         status = "PASS" if ok else "FAIL"
         print(f"[{status}] {os.path.basename(t)} ({dt:.1f}s) {results[-1][3]}")
         if not ok:
