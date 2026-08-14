@@ -51,7 +51,7 @@ still-open bug and flips to `XPASS` when fixed); `—` = not yet E2E-verified.
 | RE-20 | Every dashboard API request copies the whole store (~0.4–0.5s on 75MB); scales linearly, no cache/ETag | dashboard.md | by-design | — | S3 |
 | RE-21 | graphDensity includes possible_duplicate_of edges, slightly inflating "structural density" | dashboard.md | open | — | S4 |
 | RE-22 | Dashboard is local-only, read-only, Host-allowlisted — positive security posture, no remote-monitoring path | dashboard.md | by-design | — | S4 |
-| RE-23 | 4 source MCP tools hard-gated on MONET_CALLER_ID/MONET_PROJECT_ID; unset → opaque failure, feature silently lost | sources-sync.md | open | — | S3 |
+| RE-23 | `monet start` derives a fallback identity (`local-agent` / `<basename>-<sha8>`) when MONET_CALLER_ID/MONET_PROJECT_ID are unset, so `source_list` silently returns `[]` and `source_status`/`source_path`/`source_sync` return the non-disclosing "source is unavailable" — the identity mismatch is NOT discoverable (a caller sees a clean "no sources" state) | sources-sync.md | confirmed | test26 | S3 |
 | RE-24 | updateSource lets `access` be mutated, silently de-authorizing the host that registered/syncs the source | sources-sync.md | open | — | S2 |
 | RE-25 | MCP source_sync is synchronous/blocking (awaits full clone→chunk→hash→embed→publish→verify); can exceed MCP timeouts | sources-sync.md | by-design | — | S4 |
 | RE-26 | gate_events has NO retention/pruning; grows with agent activity (2–3 orders > resolution_events), will become largest table | gates.md | open | — | S2 |

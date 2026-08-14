@@ -223,11 +223,23 @@ run `runResult`/`lastResult`, else `never`.
 
 ## 10. Issues found (RE-23..RE-25)
 
-- **RE-23 (ops/security UX)** — the 4 source tools are hard-gated on
-  `MONET_CALLER_ID`+`MONET_PROJECT_ID` env vars. With them unset the tools
-  fail with an opaque `"trusted source authorization context is unavailable"`
-  and there is **no** runtime/tool override — a user who starts the server
-  without those vars silently loses the whole source feature set.
+- **RE-23 (ops/security UX, REFINED 2026-08-14)** — the run-19 claim ("unset →
+  opaque 'trusted source authorization context is unavailable'") was read from
+  the core `dist/index.js` `deriveOptsFromEnv` only. The CLI `start` command
+  pre-populates the identity BEFORE the server reads it:
+  `MONET_CALLER_ID = deriveCallerId()` (env → else `"local-agent"`) and
+  `MONET_PROJECT_ID = deriveProjectId()` (env → else git-origin URL → else
+  `"<basename>-<sha8>"`). So `sourceAuthorizationContext` is ALWAYS present and
+  the "context unavailable" throw is unreachable via `monet start`. The REAL
+  behavior with the env vars unset (measured 1.6.1, E2E test26): `source_list`
+  → `{sources: []}` (SILENT empty — the registered source is filtered out by
+  `authorizeSource` with no signal to the caller), and `source_status`/
+  `source_path`/`source_sync` → `"source is unavailable"` (non-disclosing by
+  design — denied and removed ids share one message). Net: a user who registers
+  sources under a specific caller but forgets to export the identity env vars
+  sees a clean "no sources" state with no hint that sources exist but are
+  identity-hidden. Test26 asserts the DESIRED contract (the mismatch must be
+  discoverable, not a bare `[]`) and is XFAIL.
 - **RE-24 (authorization-footgun)** — `updateSource` marks identity fields
   (`id,type,repositoryIdentity,remoteUrl,localPath,branch,circle`) immutable
   (`VM`), but `access` is mutable (`XM`). Mutating
