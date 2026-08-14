@@ -276,6 +276,13 @@ dirty 929 → 931 on the E2E store — the store holds 2 retired concepts).
   On the E2E store that's 184/5751 ≈ 3.2% of edges — the density metric
   includes duplicate-pair edges, so "graph density" is slightly inflated by
   dedup noise. Not a bug, but the metric name overstates structural density.
+  **E2E-confirmed 2026-08-15 (test27, XFAIL):** a 2-concept store with a
+  bidirectional `possible_duplicate_of` pair reports `graphDensity = 3.5`
+  (= 7 edgesLive / 2 concepts) while structural density excluding the 2 dup
+  edges is `2.5` — the dup edges inflate density by `dup_edges/concepts`
+  (1.0 here, a 40% overstatement on this tiny store). The test asserts the
+  DESIRED contract (`graphDensity == (edgesLive − dup_edges)/concepts`) and
+  stays XFAIL until the metric excludes dedup pair-flag edges.
 - **RE-22 (security posture, positive)** — dashboard is local-only
   (127.0.0.1), Host-allowlisted, read-only (no write endpoints), no CORS, no
   auth needed because nothing can be mutated. `monet dashboard` is safe to
