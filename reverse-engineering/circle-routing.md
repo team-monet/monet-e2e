@@ -196,7 +196,13 @@ sync-column backfill; before the gate-sidecar refresh).
 - **RE-17** — `storeInternal` has no archived-circle guard: `memory_store`
   into an archived circle succeeds silently and the concept lands in a
   hidden circle (invisible to store-wide recall until unarchived). Archive
-  hides recall, not writes.
+  hides recall, not writes. **E2E-confirmed 2026-08-14** (`test24`):
+  store into an archived circle returns `action='ambiguous'` with a live
+  `conceptId`, and the concept lands in the archived circle (DB
+  `concepts.circle` = the archived name). Note the engine does have an
+  `isArchivedCircle` helper, but it is consulted only by
+  `assertArchivedCircleMoveAllowed` (reassignCircle's archived-destination
+  door for circle-local blocking rules) — `storeInternal` never calls it.
 - **RE-18** — `renameCircle` does not refuse when `from` is an active
   alias pointing to a third circle (archiveCircle does). The ON CONFLICT
   upsert silently re-targets that alias row to the new name. Documented
