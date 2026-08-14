@@ -13,6 +13,8 @@
   (L2) queue, not the E2E verifier.
 - **confirmed** — verified against the E2E test-suite (behavioral), not just
   source-level. The test named in `e2e_test` reproduces it.
+- **fixed** — was a real bug (open/confirmed), now verified resolved in a
+  specific Monet version (E2E XPASS + source-diff cross-check).
 - **by-design** — documented behavior, a known trade-off, or future work.
 
 ## Severity (preliminary — source-level estimate; E2E-measured impact upgrades it)
@@ -45,7 +47,7 @@ still-open bug and flips to `XPASS` when fixed); `—` = not yet E2E-verified.
 | RE-16 | Explicit-circle recall bypasses archive hide (active alias → archived name still resolves) | circle-routing.md | by-design | — | S4 |
 | RE-17 | storeInternal has no archived-circle guard: memory_store into an archived circle succeeds silently | circle-routing.md | open | — | S3 |
 | RE-18 | renameCircle doesn't refuse when `from` is an active alias to a third circle; upsert silently re-targets it | circle-routing.md | by-design | — | S4 |
-| RE-19 | mergeCircle HARD-DELETES workstream concepts (no tombstone/confirmation), counts as `noop` | circle-routing.md | open | — | S2 |
+| RE-19 | mergeCircle HARD-DELETES workstream concepts (no tombstone/confirmation), counts as noop | circle-routing.md | fixed | test23 | S2 |
 | RE-20 | Every dashboard API request copies the whole store (~0.4–0.5s on 75MB); scales linearly, no cache/ETag | dashboard.md | by-design | — | S3 |
 | RE-21 | graphDensity includes possible_duplicate_of edges, slightly inflating "structural density" | dashboard.md | open | — | S4 |
 | RE-22 | Dashboard is local-only, read-only, Host-allowlisted — positive security posture, no remote-monitoring path | dashboard.md | by-design | — | S4 |

@@ -95,8 +95,13 @@ edgesUpdated,entitiesUpdated}`.
   (`*`, sharing scope, registered sources, source concepts, retired) but
   check **both** circles.
 - Per concept in `from` (ORDER BY rowid):
-  - **workstreams are HARD-DELETED** (`hardDeleteNativeConcept`), counted
-    as `noop` — they are NOT moved or merged (RE-19).
+  - **workstreams are SKIPPED in the per-concept loop and relocated by the
+    whole-circle move** — `moveCircleScopedTables` moves them (reported as
+    `moved`, or `merged` when the source workstream drains into an existing
+    destination workstream via `workstreamMerges`). This is the **1.6.1 fix
+    for RE-19** (re-verified against `engine.ts` 2026-08-14): v1.5.2
+    hard-deleted them (`hardDeleteNativeConcept`) and counted `noop`; they
+    now survive the merge with open items intact.
   - everything else goes through `reassignCircle(id, into,
     {resolution})`: `forceNew` keeps near matches distinct and flags them
     (`possible_duplicate_of` edge), `auto` deduplicates into the target.
@@ -104,8 +109,9 @@ edgesUpdated,entitiesUpdated}`.
 - Returns `{from, into, conceptResults:[{action:'moved'|'merged'|'noop',
   conceptId, fromCircle, toCircle, observationsMoved}],
   counts:{moved, merged, noop, error:0}}`.
-- **`counts.error` is hardcoded 0** — a failing concept/workstream throws
-  out of the loop with a wrapped message instead of being counted.
+- **`counts.error` is hardcoded 0** (still true in 1.6.1), but now by-design:
+  the whole merge runs under one `immediateTransaction` that rolls back
+  atomically on any item failure, so a per-item error count is moot.
 
 ## archiveCircle / unarchiveCircle
 
@@ -195,10 +201,16 @@ sync-column backfill; before the gate-sidecar refresh).
   alias pointing to a third circle (archiveCircle does). The ON CONFLICT
   upsert silently re-targets that alias row to the new name. Documented
   behavior; likely to surprise.
-- **RE-19** — `mergeCircle` HARD-DELETES workstream concepts in the merged
-  circle (`hardDeleteNativeConcept`) and counts them as `noop` — a
-  destructive merge path for workstreams only. No confirmation or tombstone
-  is written. Also `counts.error` is hardcoded 0 (real failures throw).
+- **RE-19** — ~~`mergeCircle` HARD-DELETES workstream concepts~~
+  **FIXED in 1.6.1** (E2E XPASS `test23` + `engine.ts` cross-check,
+  2026-08-14). v1.5.2 hard-deleted workstream concepts
+  (`hardDeleteNativeConcept`) and counted them `noop` — a destructive merge
+  path for workstreams only, with no confirmation or tombstone. In 1.6.1 the
+  per-concept loop skips `kind='workstream'` and `moveCircleScopedTables`
+  relocates them (`moved`, or `merged` into an existing destination
+  workstream), preserving open items byte-intact. The `counts.error`
+  hardcoded-0 note remains but is now by-design (atomic `immediateTransaction`
+  rollback makes a per-item error count moot).
 
 ## Verified constants
 
