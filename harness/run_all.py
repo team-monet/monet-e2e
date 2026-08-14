@@ -2,7 +2,17 @@
 """Monet E2E suite runner: runs every test in ../tests/ and aggregates results.
 
 Usage: python3 harness/run_all.py
-Exit code 0 if every test passes, 1 otherwise.
+
+Per-test exit codes (the authoritative signal):
+  0 = PASS   — all assertions held.
+  1 = FAIL   — unexpected failure (real regression or a broken test). Fails suite.
+  2 = XFAIL  — expected failure: the test documents a KNOWN OPEN bug (tagged
+               with an RE-XX id). NOT a suite failure; the bug is still present.
+  3 = XPASS  — unexpected pass: a known-bug test now passes, i.e. the bug
+               appears FIXED. Suite stays green, but a loud warning is emitted
+               so the issue status can be updated.
+
+Suite exit: 0 if there are no FAILs (XFAIL/XPASS do not fail the suite), else 1.
 """
 import glob
 import os
@@ -30,24 +40,41 @@ def _result_line(stdout):
 
 
 def main():
-    total = passed = 0
-    results = []
+    total = passed = xfail = xpass = 0
+    failures = []
     for t in TESTS:
         total += 1
         t0 = time.time()
         p = subprocess.run([sys.executable, t], capture_output=True, text=True, cwd=os.path.dirname(t), timeout=600)
         dt = time.time() - t0
-        ok = p.returncode == 0
-        if ok:
+        rc = p.returncode
+        name = os.path.basename(t)
+        line = _result_line(p.stdout)
+        if rc == 0:
             passed += 1
-        results.append((os.path.basename(t), ok, dt, _result_line(p.stdout)))
-        status = "PASS" if ok else "FAIL"
-        print(f"[{status}] {os.path.basename(t)} ({dt:.1f}s) {results[-1][3]}")
-        if not ok:
+            print(f"[PASS ] {name} ({dt:.1f}s) {line}")
+        elif rc == 2:
+            xfail += 1
+            print(f"[XFAIL] {name} ({dt:.1f}s) {line}")
+        elif rc == 3:
+            xpass += 1
+            print(f"[XPASS] {name} ({dt:.1f}s) {line}  <<< bug appears FIXED — update issue status")
+        else:
+            failures.append(name)
+            print(f"[FAIL ] {name} ({dt:.1f}s) {line}")
             print(p.stdout[-800:])
             print(p.stderr[-800:])
-    print(f"\nSUITE: {passed}/{total} passed")
-    return 0 if passed == total else 1
+
+    print(f"\nSUITE: {passed}/{total} passed", end="")
+    if xfail:
+        print(f", {xfail} xfail (known open bugs — expected)", end="")
+    if xpass:
+        print(f", {xpass} XPASS (bug appears fixed)", end="")
+    print()
+    if xpass:
+        print("⚠️  XPASS detected: a known-bug test now passes. The corresponding RE issue")
+        print("    may be fixed in this Monet version — verify and update its status to closed.")
+    return 0 if not failures else 1
 
 
 if __name__ == "__main__":
