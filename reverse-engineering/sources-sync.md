@@ -240,6 +240,32 @@ run `runResult`/`lastResult`, else `never`.
   client timeouts; there is no async job-id / streaming return. The scheduler
   path (`syncScheduledSource`) is the intended long-run lane, but a user
   invoking `source_sync` directly gets the blocking path.
+- **RE-29 (isolation footgun, S2, E2E-confirmed 2026-08-14):** the source
+  storage dir is NOT scoped by `-d`. `SourceRegistry` sets `sourceStorageDir =
+  resolve(homedir(), ".monet", "sources")` (source-registry.ts:404-405) when
+  the MonetCore option is absent, and the CLI/MCP server wiring never passes
+  the `-d` storage dir through. So `monet start -d <isolated>` / `source add -d
+  <isolated>` isolate the SQLite DB but silently write source snapshots/locks to
+  `~/.monet/sources`. Verified live: a repo-md source registered and synced with
+  `-d /tmp/<isolated>` materialized under `~/.monet/sources/repo-md/<id>/`,
+  not under the store. For the E2E harness this breaks the "never touch prod"
+  guardrail — the workaround is to redirect `HOME` to a temp dir for both the
+  CLI and the MCP server (test25 does this).
+- **RE-30 (macOS hard-failure, S2, E2E-confirmed 2026-08-14):** repo-md
+  `source_sync` fails with `EACCES: permission denied, rename '[local-path]' ->
+  '[local-path]'` on macOS. Root cause in `source-materializer.ts`:
+  `sealSnapshot()` chmods the staged tree to `0o500` (files `0o400`), then the
+  publish step runs `renameSync(tree, snapshotPath)` (line 2348). The code
+  already stages `tree` "beside the final variant" because "macOS refuses to
+  move a non-writable directory between parents" (line 2225-2226), but on macOS
+  15.x APFS the *in-place* (same-parent) rename of a `0o500` directory also
+  returns EACCES — the mitigation is insufficient. Reproduced 4/4 across `/tmp`
+  and `$TMPDIR` and with `HOME` redirected (location-independent). The unit
+  tests pass because they construct MonetCore with an explicit tmpdir
+  `sourceStorageDir` AND presumably their `git archive`/seal/rename runs against
+  a freshly-writable tree — but the MCP default path hits the sealed-dir rename.
+  Net effect: the entire `source_sync` feature is non-functional via MCP on
+  macOS. Exit-2 XFAIL test: `test25_sources_e2e.py`.
 
 ## 11. Open / not-yet-traced
 
@@ -248,5 +274,8 @@ run `runResult`/`lastResult`, else `never`.
   partially traced; the PR materialization sits in the `git-md` engine.
 - `ko` (git clone/pull) and `V1` (recompute) internals traced at the call-site
   level only, not line-by-line.
-- E2E store has no `knowledge_sources` — a source-injection E2E would be the
-  first data-layer verification of this whole module.
+- E2E store (shared `~/.monet-test`) has no `knowledge_sources`; the
+  source-injection E2E (test25, run 25) exercises the module in a FRESH isolated
+  store (with `HOME` redirected per RE-29) — it registers a repo-md source,
+  drives `source_list`/`source_status`/`source_sync`/`source_path`, and confirms
+  RE-29 + RE-30 (see §10).
