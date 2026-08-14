@@ -17,6 +17,7 @@
 | 2026-08-13 | 7 — sources & sync machinery | 78 (+24: source type enum repo-md/git-md, writeBack none/pull-request, refresh manual/interval + default interval 3600s, freshness window manual 86400s / interval max(60,2×interval), backoff CP base 30000 ×2 cap=interval, jitter Ww sha256%-deterministic, initial-delay min(30000,10% interval), run state enum 7, run result enum success/failed/partial, snapshot state enum 4, lifecycle enum active/tombstoned, content hash iP monet-src-content/v1:sha256:, ingest domain nP monet-src-ingest/v1, op domain oP monet-src-op/v2, content-model v5 Zd, parse-deadline cap CS=100000, chunk write_state enum 4, chunk lifecycle enum 3, cleanup-item kind enum 3, attempt-event kind enum 4, removal state enum 3, auth env vars MONET_CALLER_ID/MONET_PROJECT_ID, git-md allocator sourceStorageDir/git-md/<id>/repository.git, transport schemes https/ssh + PR-writeBack github.com-only, source-id regex 1-64 lowercase/interior-hyphens, live-run unique index) | 25 (+3: RE-23..RE-25) | New module → 7 DOCUMENTED. Sources = registered external Markdown repos scanned/chunked/hashed/materialized into concepts, published as a sealed read-only snapshot (`current` symlink + realpath escape check). Auth is server-bound via env (`MONET_CALLER_ID`/`MONET_PROJECT_ID`) matching per-source `allowed_caller_ids`×`allowed_project_ids`. Fenced/tokenized/hash-checked publish pipeline (beginRun→stageManifest→beginActivation→publishRun→recordVerification) + scheduler with lease + exp backoff + deterministic jitter. 16 source_* tables. See `sources-sync.md` |
 | 2026-08-14 | 9 — gates/conformance/journal + sync/graft (FIRST module documented from the readable TS source) | 110 (+32: 3 schema CHECK safety boundaries, 9 enum unions, 6 stage_lookup caps, 5 gate-mirror/journal consts, SYNC_PAYLOAD_PROTOCOL_VERSION=15, v8 row-convergence clock, user_version rung names 1..12, RETIREMENT_PAIR_FLAG_NAMED_MAX=3, PAIR_FLAG_EDGE_TYPES) | 3 (+3: RE-26..RE-28) | Gates/stages/rule-bindings + deterministic trigger-pattern matcher + gate journal + conformance "cheap half" documented from READABLE TS (`@team-monet/core` v0.9.0) not minified dist; sync/graft payload ceiling reconciled (`Gf`=15). Also created the missing `ISSUES.md` (RE-01..RE-28). See `gates.md` + `sync-graft.md` |
 | 2026-08-14 | 10 — living-model ranking (temporal layer + V-A weighting) | 130 (+20: usefulness tau 60d, arousal tau 120d, arousal floor 0.1, arousal weight 0.5, recency half-life 14d, staleAfterMs default 30d, livingModel conceptLimit 5, arousal floor crossover ~276d, cross-session confidence +0.1 cap 1.0, arousal event deltas flag+3/resolve+1/dismiss+0/cross-session-attach+1, merge-carry usefulness-additive+arousal-MAX+fetch_at-MAX, partial-detach no-temporal-carry, RELIABLE_EMBED_TOKENS 280, reliableSegmentTokensOf finite>=1 else 280, tokenIdf clamp max(0,log(N/(1+df))), lexicalOverlap per-observation probe-normalized, span:// URI scheme + bijective parse/format, claude-code anchor L<start>-L<end>, synthesis body-only no-summary) | 32 (+2: RE-31..RE-32) | Temporal layer (last_confirmed_at vs updated_at split, confirmation vs structural-touch), staleness (30d), V-A weighting (usefulness fetch-driven + arousal conflict-driven, each with decay + arousal floor), livingModelScore multiplicative blend (confidence × usefulness × recency × arousal), merge/detach/sync temporal carry, plus companion seams embed-budget/lexical-overlap/spans/synthesis. Documented from readable TS. See `living-model-ranking.md` |
+| 2026-08-15 | 14 — statement tracing + embed window guard + lifecycle edges + skeleton mirror (4 modules, readable TS) | 160 (+30: STATEMENT_SLOW_THRESHOLD_MS 1000, STATEMENT_TRACE_SQL_MAX_CHARS 2000, TRACE_FILE_MODE 0o600, MONET_TRACE_SQL env switch, StatementMethod 10 mouths, inflight-<pid>-<seq>.json + slow-queries.jsonl, marker schema v:1+depth+dbPath, NON_LATIN_LETTER_TOLERANCE 0.2, paragraph/sentence boundary regexes, hardCut whitespace pref ws>fit*0.6, joiner +1 token, segmentTokenBudget min(reliable,window)+null-unbounded, window guard tokens>inputWindow + subject content\|query + storeSource bypass, 3 lifecycle families, 5 births, 4 verdicts, 2 entrances, BATTERY_GATES 4 gates, SUPERSESSION_WALK_CAP 1000, supersession partial unique index, dst_span span://, MATERIALIZE_MANIFEST materialize.json, BEGIN/END markers, 3 mirror stale reasons, skeletonStateHash canonical ordering) | 34 (+2: RE-33..RE-34) | Statement tracing (in-flight marker before-run + slow log after-return; #145 wedge diagnosis) + embed window guard (RELIABLE_EMBED_TOKENS advisory@write/enforced@segmenter; write/query over-window refusal; Latin-script gate 0.2) + lifecycle edges/ratifications (normative substrate, separate append-only tables, 4-gate extraction battery, supersession cycle guard) + skeleton mirror (materialize stale detection). Documented from readable TS. See `statement-trace.md` + `embed-window-guard.md` + `lifecycle-edges.md` + `skeleton-mirror.md` |
 
 ## Module inventory
 
@@ -33,6 +34,11 @@
 | Gates / conformance / gate journal (`stages`, `rule_bindings`, `gate_events`, `gate_event_stages`, `gate_meta`; trigger-pattern matcher `matchesTriggerPattern`, `gateQuery`/`evaluateGate`, `stageLookup`/`evaluateStageLookup`, gate mirror `materializeGateMirror`/`inspectSidecar`, `GATE_MIRROR_FORMAT`=4; gate journal `gate-journal.jsonl`; conformance `computeConformance`/`tallyByRule`/`retirementCandidates`) | src/gates.ts, src/gate-journal.ts, src/conformance.ts | **DOCUMENTED** | `gates.md` |
 | Sync & graft protocol (`GraftPayload` v8/v15, `exportDelta`, `graftRows`, `batchDedup`, `initSyncIdentity`; `SYNC_PAYLOAD_PROTOCOL_VERSION`=15; v8 row-convergence clock `sync_revision`/`sync_writer`; native-only validation; embedder-mismatch rejection; multi-writer `edgeComponents`/`deletions`/`conceptActivity`/`tombstones`/`restorations`) | src/sync-types.ts, engine.ts | **DOCUMENTED** | `sync-graft.md` |
 | Living-model ranking (temporal layer `last_confirmed_at`/`last_confirmed_session_id` + confirmation-vs-touch split; staleness `staleAfterMs`/`getStaleConcepts`/`listStale`; V-A weighting `usefulness_score`/`usefulness_last_fetched_at`/`arousal_score`/`arousal_last_updated_at` + decay + arousal floor; `livingModelScore` blend; `livingModelCard`; merge/detach/sync temporal carry) | src/engine.ts | **DOCUMENTED** | `living-model-ranking.md` |
+
+| Statement tracing (`createStatementTracer`, `readInflightStatements`, `statementTraceEnabled`, in-flight marker `inflight-<pid>-<seq>.json`, slow log `slow-queries.jsonl`, `StatementMethod` 10 mouths; wired into `storage.ts` lock-contention holder naming) | src/statement-trace.ts, src/storage.ts | **DOCUMENTED** | `statement-trace.md` |
+| Embed budget & window guard (`RELIABLE_EMBED_TOKENS`, `reliableSegmentTokensOf`, `segmentTokenBudget`, `segmentObservation`, `hardCut`, `nonLatinLetterShare`, `assertWithinEmbedderWindow`, `assertEmbedderReadsScript`, `ContentExceedsEmbedderWindowError`) | src/embed-budget.ts, src/observation-segmenter.ts, src/script-gate.ts, src/engine.ts | **DOCUMENTED** | `embed-window-guard.md` |
+| Lifecycle edges & ratifications (`addLifecycleEdge`, `recordRatification`, `classifyRatificationPair`, `assertBatteryShape`, `supersessionCycle`, `ungovernableReason`, `getLifecycleEdges`, `walkDerivation`, `getRatifications`; `lifecycle_edges`+`ratifications` tables) | src/lifecycle-edges.ts | **DOCUMENTED** | `lifecycle-edges.md` |
+| Skeleton mirror (`skeletonStateHash`, `inspectSkeletonMirrors`, `hasCoveringSkeletonSurface`, `MirrorStaleReason`) | src/skeleton-mirror.ts | **DOCUMENTED** | `skeleton-mirror.md` |
 
 ## Identified parameters (running list)
 
@@ -171,6 +177,37 @@
 | span URI scheme | `span://host/session#anchor`, host unescaped, session+anchor percent-encoded, parse/format bijective | spans.ts | provenance-edge address; compared by string equality |
 | `claude-code` anchor | `L<start>-L<end>` 1-based inclusive JSONL lines | spans.ts | only interpreted host; others opaque |
 | synthesis shape | body only, NO summary | synthesis.ts | summary reads like an answer (#232) |
+
+| `STATEMENT_SLOW_THRESHOLD_MS` | 1 000 | statement-trace.ts | slow-log threshold |
+| `STATEMENT_TRACE_SQL_MAX_CHARS` | 2 000 | statement-trace.ts | SQL clip (marker + slow log) |
+| `TRACE_FILE_MODE` | `0o600` | statement-trace.ts | both trace files, open + inherited fchmod |
+| `MONET_TRACE_SQL` | `"1"` | statement-trace.ts | single on/off switch, off by default |
+| `StatementMethod` | prepare, run, get, all, exec, pragma, transaction, immediateTransaction, backup, backupVerify | statement-trace.ts | 10 traced SQL mouths |
+| in-flight marker name | `inflight-<pid>-<connectionSeq>.json` | statement-trace.ts | one per connection; reader globs |
+| slow-log name | `slow-queries.jsonl` | statement-trace.ts | append-only, write-only (RE-33) |
+| marker schema | `v:1` + pid/method/startedAt/depth/sql + optional dbPath | statement-trace.ts | reader-parsed record |
+| `NON_LATIN_LETTER_TOLERANCE` | 0.2 | script-gate.ts | Latin-only gate (share of non-Latin letters) |
+| paragraph boundary | `/\n\s*\n+/u` | observation-segmenter.ts | finest claim boundary |
+| sentence boundary | `/(?<=[.!?。！？])\s+|\n+/u` | observation-segmenter.ts | secondary boundary |
+| hardCut whitespace preference | `ws > fit * 0.6` | observation-segmenter.ts | word-boundary cut over mid-word |
+| joiner cost | +1 token per `\n` join | observation-segmenter.ts | segment never over budget |
+| `reliableSegmentTokensOf` rule | finite && >= 1 else 280 | embed-budget.ts | one shared validation |
+| `segmentTokenBudget` | `min(reliable, window)`, null when unbounded | observation-segmenter.ts | per-provider segment budget |
+| window-guard predicate | `tokens > inputWindow` | engine.ts | refuse before any embed |
+| `ContentExceedsEmbedderWindowError` | subject `content`/`query`, `tokens`/`maxInputTokens`/`reliableTokens` | engine.ts | surfaced refusal + remedy |
+| storeSource window bypass | skip guard (no author to retry) | engine.ts | chunk budget lives in the chunker |
+| `LifecycleEdgeFamily` | derivation, provenance, supersession | lifecycle-edges.ts | 3 normative relation families |
+| `LifecycleEdgeBirth` | correction, declaration, projection, ratification, extraction | lifecycle-edges.ts | 5 birth acts |
+| `RatificationVerdict` | approve, reject, retire, re-ratify | lifecycle-edges.ts | 4 human verdicts |
+| `RatificationEntrance` | extraction, declaration | lifecycle-edges.ts | how a verdict entered (#142) |
+| `BATTERY_GATES` | generates, covers, transfers, exits | lifecycle-edges.ts | 4-gate extraction battery |
+| `SUPERSESSION_WALK_CAP` | 1000 | lifecycle-edges.ts | cycle-walk refusal cap |
+| supersession uniqueness | partial unique index on `(src_concept_id)` | lifecycle-edges.ts | one direct successor per rule |
+| `dst_span` format | `span://` URI (parseSpan-validated) | lifecycle-edges.ts | provenance destination |
+| `MATERIALIZE_MANIFEST` | `materialize.json` | skeleton-mirror.ts | standing-surface registry |
+| BEGIN/END markers | `<!-- BEGIN monet:skeleton -->` / `<!-- END monet:skeleton -->` | skeleton-mirror.ts | block hash span |
+| `MirrorStaleReason` | block-missing, block-edited, store-moved | skeleton-mirror.ts | 3 stale causes |
+| `skeletonStateHash` ordering | code-unit `<`/`>`, no whitespace, exact key order | skeleton-mirror.ts | canonical hash |
 
 ## Stagnation detection
 
