@@ -20,6 +20,7 @@
 | 2026-08-15 | 14 — statement tracing + embed window guard + lifecycle edges + skeleton mirror (4 modules, readable TS) | 160 (+30: STATEMENT_SLOW_THRESHOLD_MS 1000, STATEMENT_TRACE_SQL_MAX_CHARS 2000, TRACE_FILE_MODE 0o600, MONET_TRACE_SQL env switch, StatementMethod 10 mouths, inflight-<pid>-<seq>.json + slow-queries.jsonl, marker schema v:1+depth+dbPath, NON_LATIN_LETTER_TOLERANCE 0.2, paragraph/sentence boundary regexes, hardCut whitespace pref ws>fit*0.6, joiner +1 token, segmentTokenBudget min(reliable,window)+null-unbounded, window guard tokens>inputWindow + subject content\\|query + storeSource bypass, 3 lifecycle families, 5 births, 4 verdicts, 2 entrances, BATTERY_GATES 4 gates, SUPERSESSION_WALK_CAP 1000, supersession partial unique index, dst_span span://, MATERIALIZE_MANIFEST materialize.json, BEGIN/END markers, 3 mirror stale reasons, skeletonStateHash canonical ordering) | 34 (+2: RE-33..RE-34) | Statement tracing (in-flight marker before-run + slow log after-return; #145 wedge diagnosis) + embed window guard (RELIABLE_EMBED_TOKENS advisory@write/enforced@segmenter; write/query over-window refusal; Latin-script gate 0.2) + lifecycle edges/ratifications (normative substrate, separate append-only tables, 4-gate extraction battery, supersession cycle guard) + skeleton mirror (materialize stale detection). Documented from readable TS. See `statement-trace.md` + `embed-window-guard.md` + `lifecycle-edges.md` + `skeleton-mirror.md` |
 | 2026-08-15 | 16 — diagnostics (doctor/repair preflight) + source chunker (2 modules, readable TS) | 181 (+21: MONET_SCHEMA_VERSION=12 single const, MALFORMED_EMBEDDING_SAMPLE_LIMIT 20, safety assessment vocab {missing,safe,unsafe,unknown}, PIN_SOURCES {created,backfilled,migrated}, migration abandon classification {safe,refused,unsupported,unknown}, diagnostic failure reason {locked,not-sqlite,unreadable}, snapshot temp prefix monet-readonly-diagnostic-*, non-Latin sample quotas 3 obs+2 concept, conditional readonly open, DEFAULT_SOURCE_MAX_CHUNKS 100000, MIN_SOURCE_SECTION_BYTES 200, hashSourceDomain NUL+8-byte-BE framing, frontmatter flat-model rules, sourceHeadingAnchor _root/_untitled NFC slug, sourceRef <path>#<anchor>~<occurrence>, documentSequence 1-based post-merge, minimum-merge direction+cap-over-minimum, splitUtf8 code-point iteration, fence atomic fail-closed, quick_check single-ok gate, sqlite open timeout 5000) | 36 (+2: RE-35..RE-36) | `diagnostics.ts` = the `monet doctor`/`repair` embedder-state preflight (safety assessment ladder, #188 snapshot isolation — read-write throwaway copy when no WAL, read-only real file when WAL present, non-Latin scan over 4 populations, migration abandon classification) + report-only lifecycle-edge integrity sweep (RE-35: no operator surface). `source-chunker.ts` = Markdown → deterministic chunks (fail-closed flat frontmatter, ATX-only sections, min-chunk merge, line-boundary segmentation with atomic fences, content/ingest/op hashing, sourceRef). RE-36: splitUtf8 splits by code point not grapheme. See `diagnostics.md` + `source-chunker.md` |
 | 2026-08-16 | 18 (+2: render-overview, extract-entities) — 3 docs cross-checked vs readable TS (1 corrected for drift) + 2 new modules documented | 205 (+24) | 38 (+2: RE-37, RE-38) | Run 34 (DIRECTION priority #1 + #2, issues #7 + #8): (1) minified-doc drift cross-check — `search-pipeline.md` + `dedup-resolution.md` verified NO drift (every constant/SQL/`MODEL_PROFILES`≡`pU`/`DEFAULT_MODEL`≡`uU`/`applyEmbedderDerivedThresholds` value-for-value identical vs `retrieval.ts`/`resolution.ts`/`lexical-overlap.ts`/`embedding-onnx.ts`/`engine.ts`); `schema-migration.md` had REAL drift (ladder refactored into NAMED version-gated migrations `GRAPH=1…FIRST_BLOCK_RETIREMENT=12`; "no-op bump" labels 2→3/3→4/5→6/6→7 wrong; corrected in-place); RE-09/RE-10 reconfirmed (`source`). (2) documented `render-overview.ts` (terminal curation renderer; RE-37: no operator surface, S3) + `extract-entities.ts` (entity extraction for `about` edges; RE-38: .ts/.mjs mirror, S4). (3) added `L2-code-fix-queue.md` (11 confirmed bugs severity-ordered). |
+| 2026-08-16 (run 35) | 19 (+1: mcp-server wire layer) | 231 (+26) | 40 (+2: RE-39, RE-40) | Run 35: documented `mcp-server.ts` (3 503 lines — the largest core file after engine.ts), the MCP **wire layer** the module docs deliberately left out. Covers the 23-tool roster (17 memory_* + 4 source_* + agent_context + stage_lookup; 21→23 = memory_retire+restore), the size-fit result-shaping layer (RESULT_MAX_CHARS=40 000 whole-payload-omission `ok()` net, iterative JSON.stringify size-fit not count caps, stage_lookup 3-tier omitted-rule recovery outline→ids→count-only), auto-prewarm one-shot (snapshot-before-mutation, consumed-on-success/discarded-on-error), model-tag "one chain" (blank=absent, read-at-call-time), server-bound source auth (never a tool arg), and graceful-shutdown machinery (in-flight quiesce 10 s + referenced-timer barrier 30 s + signal exit codes). New issues RE-39 (truncation-note text dead+duplicated — only `.length` used, never emitted, diverges from ok()'s actual wording) + RE-40 (checkpointNudge deprecated no-op in public opts). See `mcp-server.md` |
 
 ## Module inventory
 
@@ -45,6 +46,7 @@
 | Source chunker (`chunkSourceText`, `parseFrontmatter`, `sectionsFromMarkdown`, `mergeUndersizedSections`, `segmentSection`/`splitUtf8`, `hashSourceDomain`, `computeSourceIngestFingerprint`/`computeSourceContentHash`/`computeSourceOperationId`, `sourceHeadingAnchor`/`makeSourceRef`/`deriveSourceFileTitle`) | src/source-chunker.ts | **DOCUMENTED** | `source-chunker.md` |
 | Render overview / curation workbench (`renderOverview`) | src/render-overview.ts | **DOCUMENTED** | `render-overview.md` |
 | Entity extraction (`extractEntities`, `singularize`, `stripKoreanParticle`, `normalizeToken`, `KOREAN_PARTICLES`, `LEXICON`, `STOPWORDS`) | src/extract-entities.ts (+ `.mjs` mirror) | **DOCUMENTED** | `extract-entities.md` |
+| MCP wire layer (`registerMonetCoreTools` 23-tool roster, `ok()`/`err()`/`clip()` result shaping, `fitObjectArray`/`fitStringArray`/`fitRecallEnvelope`/`fitOverviewEnvelope`, `wrapSuccess` auto-prewarm, `capturePrewarmSnapshot`, `buildPrewarmBlock`, `deriveOptsFromEnv`, `withShutdownBarrier`/`getInFlightTracker` graceful shutdown) | src/mcp-server.ts | **DOCUMENTED** | `mcp-server.md` |
 
 ## Identified parameters (running list)
 
@@ -260,6 +262,33 @@
 | `strongAlone` | `kind !== "noun" && df <= RARE_DF_MAX` | engine.ts | hub-gate bypass for rare structural |
 | `isHubDf` | df vs concept-count hub threshold | engine.ts | skip `about`-edge only (keep `concept_entities` row + df) |
 | `.mjs` mirror | byte-for-byte `extractEntities` duplicate, mirror-identity test | extract-entities.mjs | plain-node `scrub-db.mjs` re-extraction |
+
+| `MONET_SERVER_INSTRUCTIONS` | (injected system prompt) | mcp-server.ts | agent_context-first / stage_lookup-before-acting / search→fetch / store-vs-declare / checkpoint-as-it-happens |
+| `RESULT_MAX_CHARS` | 40 000 | mcp-server.ts | hard ceiling on any serialized tool result; `ok()` whole-payload-omission net |
+| `FETCH_MAX_OBS` | 20 | mcp-server.ts | most-recent observations returned by `memory_fetch` |
+| `FETCH_OBS_MAX_CHARS` | 1 200 | mcp-server.ts | per-observation cap |
+| `FETCH_BODY_MAX_CHARS` | 6 000 | mcp-server.ts | concept body cap |
+| `FETCH_CONTRADICTION_MAX_CHARS` | 400 | mcp-server.ts | per-open-contradiction detail cap |
+| `FETCH_CONTRADICTIONS_MAX` | 5 | mcp-server.ts | newest-first open-contradiction entries per fetch |
+| `FETCH_OUTLINE_MAX_ENTRIES` | 200 | mcp-server.ts | source-concept outline upper bound (cheap size-fit loop bound) |
+| `CIRCLE_NAME_MAX_CHARS` | 256 (exported) | mcp-server.ts | caller-controlled circle echo bound before writes |
+| `WRITE_ACK_LIST_MAX` | 25 | mcp-server.ts | ack list fit (e.g. impeachedPrincipleIds) |
+| `STAGE_ACK_PATTERNS_MAX` | 8 | mcp-server.ts | stage-view pattern cap in write ack |
+| `STAGE_ACK_TOKEN_MAX_CHARS` | 80 | mcp-server.ts | per-pattern token clip |
+| `STAGE_ACK_PATTERN_MAX_CHARS` | 300 | mcp-server.ts | per-pattern clip |
+| `WRITE_ACK_TEXT_MAX_CHARS` | 1 000 | mcp-server.ts | stage-name clip in write ack |
+| `ANOMALOUS_STORE_RESOLUTION_MODES` | ambiguous-fork \\| fork-signal \\| blur-duplicate \\| species-fork \\| stage-fork | mcp-server.ts | resolution modes surfaced as anomalous in store ack |
+| `PREWARM_BLOCK_MAX_CHARS` | 2 500 | mcp-server.ts | prewarm block budget |
+| `STAGE_INDEX_PREWARM_MAX_SHOWN` | 15 | mcp-server.ts | stage-recognition cue name cap |
+| `STAGE_INDEX_PREWARM_LINE_MAX_CHARS` | 800 | mcp-server.ts | cue line's own budget (incremental fit, whole-line-drop fix) |
+| `STAGE_INDEX_PREWARM_TAIL_MARGIN_CHARS` | 20 | mcp-server.ts | "+K more" tail headroom |
+| `SHUTDOWN_BARRIER_DEADLINE_MS` | 30 000 | mcp-server.ts | referenced-timer shutdown barrier deadline |
+| `IN_FLIGHT_QUIESCE_DEADLINE_MS` | 10 000 | mcp-server.ts | in-flight tool-call drain deadline |
+| `SIGNAL_EXIT_CODE` | SIGINT 130 / SIGTERM 143 | mcp-server.ts | 128+signal exit-code convention |
+| `MONET_NO_AUTOPREWARM` | `"1"` | mcp-server.ts | disable auto-prewarm |
+| `MONET_CALLER_ID`+`MONET_PROJECT_ID` | both required | mcp-server.ts | server-bound source auth identity |
+| `MONET_MODEL_TAG` | blank = absent | mcp-server.ts | agent-scope compensation model tag (trim+blank→undefined) |
+| `checkpointNudge` | deprecated no-op | mcp-server.ts | RE-40 dead API surface in RegisterMonetCoreToolsOpts |
 
 ## Stagnation detection
 
