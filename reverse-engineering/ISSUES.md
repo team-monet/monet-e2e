@@ -38,7 +38,7 @@ still-open bug and flips to `XPASS` when fixed); `—` = not yet E2E-verified.
 | RE-07 | `limit` truncation is silent — no flag tells the caller more matches existed | search-pipeline.md | confirmed | test22 | S3 |
 | RE-08 | Migration steps run outside one transaction (version is a milestone, not a ledger); half-migrated state reports old version | schema-migration.md | by-design | — | S4 |
 | RE-09 | supportedSchemaVersion=12 hardcoded in 3+ places; next schema bump must touch all in lockstep or doctor silently degrades | schema-migration.md | source | — | S3 |
-| RE-10 | Schema version 10 skipped (9→11 jump); external tooling assuming consecutive numbers must know the hole | schema-migration.md | open | — | S4 |
+| RE-10 | Schema version 10 skipped (9→11 jump); external tooling assuming consecutive numbers must know the hole | schema-migration.md | source | — | S4 |
 | RE-11 | user_version conflates schema and feature backfills (0→1 graph backfill gated on graphEnabled) | schema-migration.md | source | — | S3 |
 | RE-12 | Migration sentinel `author_agent_id="schema-12-first-block-migration"` leaks into product attribution APIs | schema-migration.md | by-design | — | S4 |
 | RE-13 | Contradiction statuses are raw string literals across 6+ functions, no shared enum | contradiction-processing.md | source | — | S3 |
@@ -60,7 +60,7 @@ still-open bug and flips to `XPASS` when fixed); `—` = not yet E2E-verified.
 | RE-29 | `-d` isolates the SQLite DB but NOT source storage — `sourceStorageDir` hard-defaults to `~/.monet/sources` via `homedir()` with no `-d` scoping / CLI/env override; isolated-source work silently writes to prod | sources-sync.md | confirmed | test25 | S2 |
 | RE-30 | repo-md `source_sync` fails `EACCES` on macOS — `sealSnapshot` chmods the tree `0o500` then `renameSync` into place; APFS refuses the in-place rename of a non-writable dir, so the stage-beside-variant mitigation (source-materializer.ts:2225) is insufficient on macOS 15.x | sources-sync.md | confirmed | test25 | S2 |
 | RE-31 | V-A living-model tunables hardcoded module constants, not constructor opts (usefulness tau=60d, arousal tau=120d, arousal floor 0.1, arousal weight 0.5, recency half-life 14d inline) — can't tune without patching source; recency 14 is a bare magic number vs the named usefulness/arousal taus | living-model-ranking.md | source | — | S3 |
-| RE-32 | `livingModelCard` discards the ranking score + per-signal breakdown (returns id/title/kind/confidence/supportCount) — the ordering is opaque: a caller sees that a concept ranks high but not why (recency vs usefulness vs arousal) | living-model-ranking.md | open | — | S4 |
+| RE-32 | `livingModelCard` discards the ranking score + per-signal breakdown (returns id/title/kind/confidence/supportCount) — the ordering is opaque: a caller sees that a concept ranks high but not why (recency vs usefulness vs arousal) | living-model-ranking.md | confirmed | test32 | S4 |
 | RE-33 | `slow-queries.jsonl` (statement-trace slow log) is write-only: `readInflightStatements` gives the in-flight marker a consumer (lock-contention path in storage.ts) but nothing reads/surfaces the slow log — the retrieval-degradation diagnosis it exists to provide has no doctor/CLI/MCP path | statement-trace.md | confirmed | test31 | S3 |
 | RE-34 | Lifecycle-edge cross-circle invariant is checked at creation but NOT maintained: a later `reassignCircle`/`moveConcept` moves one endpoint into another circle and leaves the edge standing with a `circle` value that no longer names both endpoints (append-only; `circle` is provenance, not live locality) | lifecycle-edges.md | by-design | — | S4 |
 
@@ -88,6 +88,18 @@ still-open bug and flips to `XPASS` when fixed); `—` = not yet E2E-verified.
   DISJOINT correction case (creates its own concept, opens no contradiction) is
   correct-by-design; the below-threshold fork nuance (no possible_duplicate_of on an
   ambiguous fork) is the same by-design fork semantics as RE-02, not a verified bug.
+- **E2E verification loop (2026-08-15, run 32):** RE-32 (`livingModelCard` drops the
+  ranking score) converted to XFAIL test32 and CONFIRMED — the card emits
+  `{id,title,kind,confidence,supportCount}` with no numeric rank signal, so the
+  `livingModelScore`-ordered living model is opaque (a concept fetched 4x ranked
+  LAST with no way to see why). RE-10 reclassified `open` → `source` (schema-version
+  ladder hole is a documentation/tooling note, no observable wrong behavior).
+- **Version bump re-check (2026-08-15, run 32):** `@team-monet/monet` 1.6.1 → 1.6.3
+  available on npm. Installed 1.6.3 to an isolated prefix and ran the FULL suite: 23
+  MCP tools identical, root `--help` identical, all 31 tests produce IDENTICAL results
+  (21 pass / 9 xfail / 1 xpass / 0 fail). No tracked bug (RE-04/07/17/21/23/24/26/30/33)
+  was fixed and no regression was introduced — 1.6.3 is a safe upgrade candidate that
+  does not resolve any open XFAIL. Prod install stays at 1.6.1 (upgrade is John's call).
 - **Sources E2E isolation (2026-08-14):** `sourceStorageDir` = `resolve(homedir(),
   ".monet", "sources")` and is NOT wired to `-d` (RE-29). To test sources without
   touching prod `~/.monet/sources`, redirect `HOME` to a temp dir for BOTH the

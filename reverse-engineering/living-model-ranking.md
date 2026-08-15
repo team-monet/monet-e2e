@@ -198,3 +198,11 @@ livingModelScore =
   *why* (recency vs usefulness vs arousal). Consistent with the "structural
   card, no body" philosophy, but the score is a rank signal, not content — a
   mild observability gap.
+
+  **E2E-confirmed (2026-08-15, run 32, `test32_re32_living_model_score_opacity.py`):**
+  XFAIL. Three concepts stored, the first fetched 4× (a usefulness signal that
+  should reorder it), then `memory_overview` returned a 3-card `livingModel` whose
+  cards were `{id,title,kind,confidence,supportCount}` with no numeric rank signal.
+  The observed order was `gamma > beta > alpha` — the 4×-fetched `alpha` ranked LAST,
+  and without the discarded score there is no way to tell why. `rank-signal present:
+  [False, False, False]`. Also re-confirmed identical in 1.6.3.
