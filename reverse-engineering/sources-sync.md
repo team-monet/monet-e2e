@@ -246,6 +246,12 @@ run `runResult`/`lastResult`, else `never`.
   `access.allowedCallerIds`/`allowedProjectIds` can silently de-authorize the
   very host that registered/syncs the source — its scheduler and `source_*`
   calls then fail with `"source is unavailable"` with no warning at edit time.
+  **E2E-confirmed (run 30, test28):** the CLI `source update` exposes
+  repeatable `--allow-caller`/`--allow-project` flags that REPLACE each access
+  list. `source update <id> --allow-caller <other>` returns rc=0 (`Updated
+  source …`) with no warning, the `allowed_caller_ids_json` column now excludes
+  the acting caller, and the acting caller's MCP `source_list` returns `[]` —
+  the self-de-authorization is completely silent.
 - **RE-25 (latency, design)** — MCP `source_sync` is synchronous/blocking: it
   awaits the full `Jd` pipeline (clone/pull → walk → chunk → hash → embed →
   publish → verify). A cold `git-md` sync of a large repo can exceed MCP
