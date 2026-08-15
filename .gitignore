@@ -3,6 +3,8 @@ monet.db
 monet.db-shm
 monet.db-wal
 gate-mirror.json
+inflight-*.json
+slow-queries.jsonl
 backups/
 run-*/
 

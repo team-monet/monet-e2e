@@ -212,7 +212,7 @@ and the alternatives", etc.).
   (`/[a-z0-9][a-z0-9_-]{2,}/`). Multilingual models (bge-m3, multilingual
   MiniLM) pass the Latin-script guard for storage/search but their search
   ordering gets zero lexical contribution for non-Latin queries. English
-  benefits from both arms; Korean/Japanese rely purely on embeddings.
+  benefits from both arms; Korean/Japanese rely purely on embeddings. **E2E-CONFIRMED (2026-08-15, test30):** Korean content stores ZERO `observation_tokens` rows (the Latin-only `lexicalTokens` drops Hangul at write time) vs 10 tokens for the English equivalent; Korean SEMANTIC retrieval still works (bge-m3), so the gap is purely lexical. XFAIL.
 - **RE-05 (design nuance):** source concepts skip `nativeScoreFloor` — a source
   projection with tiny cosine (any score > 0) still enters results while a
   native concept below floor is dropped. Unclear if intentional (sources are

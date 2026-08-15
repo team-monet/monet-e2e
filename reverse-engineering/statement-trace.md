@@ -83,7 +83,7 @@ The two are not redundant: one catches what never finishes, the other catches wh
   in-flight marker a consumer (the lock-contention path in `storage.ts`), but nothing in the
   codebase reads or surfaces the slow log — there is no `doctor`/CLI/MCP path to view
   "search degraded because N statements now exceed 1s". The instrument's second half (the
-  retrieval-degradation diagnosis it was built to provide) has no consumer yet. See ISSUES.md.
+  retrieval-degradation diagnosis it was built to provide) has no consumer yet. See ISSUES.md. **E2E-CONFIRMED (2026-08-15, test31):** with `MONET_TRACE_SQL=1` the tracer writes its in-flight marker (CONTROL), but no `doctor`/`status`/`gate`/MCP surface reads or surfaces `slow-queries.jsonl`. XFAIL.
 
 ## Verification
 

@@ -182,11 +182,11 @@ occurrence is seen, never the reverse). Key non-obvious correctness facts it enc
 
 ## Issues found
 
-- **RE-26 (scalability, open):** `gate_events` has NO retention/pruning — the source comment states
+- **RE-26 (scalability, confirmed):** `gate_events` has NO retention/pruning — the source comment states
   "on a busy store it will become the largest one" (2–3 orders of magnitude more rows than
   `resolution_events`; grows with agent activity, not memory volume). Retention is explicitly
   deferred, with `SOURCE_ATTEMPT_EVENT_RETENTION` (128 immutable receipts/source) named as the
-  precedent to copy. Not a bug today, but a real operability gap on busy stores.
+  precedent to copy. Not a bug today, but a real operability gap on busy stores. **E2E-CONFIRMED (2026-08-15, test29):** 131 `stage_lookup` calls (recognized matcher) → 131 `gate_events` rows, and no retention/prune surface exists in `gate`/`doctor`/`status`/`resegment`/`--help` or the 23 MCP tools. XFAIL.
 - **RE-27 (measurement half-vacuum, by-design):** the conformance "cheap half" can only ever emit
   `changed` for blocking denies. Every advisory fire is recorded `unavailable` (awaiting the future
   "judgment half"), so `retirementCandidates` can never retire an ADVISORY rule — the process-ratchet
