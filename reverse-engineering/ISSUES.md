@@ -63,6 +63,8 @@ still-open bug and flips to `XPASS` when fixed); `—` = not yet E2E-verified.
 | RE-32 | `livingModelCard` discards the ranking score + per-signal breakdown (returns id/title/kind/confidence/supportCount) — the ordering is opaque: a caller sees that a concept ranks high but not why (recency vs usefulness vs arousal) | living-model-ranking.md | confirmed | test32 | S4 |
 | RE-33 | `slow-queries.jsonl` (statement-trace slow log) is write-only: `readInflightStatements` gives the in-flight marker a consumer (lock-contention path in storage.ts) but nothing reads/surfaces the slow log — the retrieval-degradation diagnosis it exists to provide has no doctor/CLI/MCP path | statement-trace.md | confirmed | test31 | S3 |
 | RE-34 | Lifecycle-edge cross-circle invariant is checked at creation but NOT maintained: a later `reassignCircle`/`moveConcept` moves one endpoint into another circle and leaves the edge standing with a `circle` value that no longer names both endpoints (append-only; `circle` is provenance, not live locality) | lifecycle-edges.md | by-design | — | S4 |
+| RE-35 | `lifecycleEdgeIntegrity()` (dangling-edge sweep) is a public `MonetCore` method with NO operator surface — not exposed as an MCP tool or CLI command (unlike `inspectStoredEmbedderState`, which backs `doctor`/`repair`); report-only, library-only reachability, and moot today (no producer of lifecycle edges yet) | diagnostics.md | source | — | S4 |
+| RE-36 | `splitUtf8` in the source chunker segments by UTF-8 code point, not grapheme cluster, so an over-budget chunk split can land between a base char and its combining marks (decomposed Hangul 자모, ZWJ emoji), leaving a dangling combining mark at a chunk boundary | source-chunker.md | source | — | S4 |
 
 ## Maintenance notes
 
@@ -100,6 +102,15 @@ still-open bug and flips to `XPASS` when fixed); `—` = not yet E2E-verified.
   (21 pass / 9 xfail / 1 xpass / 0 fail). No tracked bug (RE-04/07/17/21/23/24/26/30/33)
   was fixed and no regression was introduced — 1.6.3 is a safe upgrade candidate that
   does not resolve any open XFAIL. Prod install stays at 1.6.1 (upgrade is John's call).
+- **Readable-TS documentation pass (2026-08-15, run 33):** documented two previously
+  undocumented engine subsystems from readable TS — `diagnostics.md` (the `monet doctor`/
+  `repair` embedder-state preflight: safety assessment ladder, snapshot isolation #188,
+  pin/population/migration/non-Latin inspection, and the report-only lifecycle-edge
+  integrity sweep) and `source-chunker.md` (Markdown → deterministic chunks: frontmatter
+  parser, sectioning, minimum-chunk merge, segmentation, hashing, sourceRef). New issues
+  RE-35 (lifecycleEdgeIntegrity has no operator surface) and RE-36 (splitUtf8 splits by
+  code point not grapheme). Cross-check note: `MONET_SCHEMA_VERSION=12` is a single named
+  const in the readable source — RE-09 is a dist-bundle concern, not a source one.
 - **Sources E2E isolation (2026-08-14):** `sourceStorageDir` = `resolve(homedir(),
   ".monet", "sources")` and is NOT wired to `-d` (RE-29). To test sources without
   touching prod `~/.monet/sources`, redirect `HOME` to a temp dir for BOTH the
