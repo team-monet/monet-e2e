@@ -157,6 +157,32 @@ Related-graph thresholds (same source constants):
   `dist/index.js` and the `dist/cli.js` bundle (`xH`/`IN`/`oi` vs `V1`/`sT`/`gN`).
   Any source patch must touch both; keep them in sync when diffing versions.
 
+## Cross-check against readable TS (2026-08-16, run 34)
+
+Validated against `packages/core/src/resolution.ts` + `embedding-onnx.ts` +
+`engine.ts` (commit 83e9d7d, core 0.9.0). **No drift — decision logic, the model
+profile table, the default, and the threshold-derivation function all match.**
+
+- `resolveIncoming` (resolution.ts:230) ≡ minified `V1`; `createOrPair`
+  (resolution.ts:324) ≡ `sT`. Same five-mode band mapping and same
+  `ResolutionMode` vocabulary (the doc's table is exact, including the
+  `species-fork`/`stage-fork` engine-only overrides).
+- `MODEL_PROFILES` (embedding-onnx.ts:227–548) ≡ minified `pU`, value-for-value:
+  multilingual-MiniLM `.70/.5`; all-MiniLM-L6-v2 legacy `.72/.5` + Latin-only;
+  bge-small-en-v1.5 `.78/.5` + edgeSimMin `.70` + `reliableSegmentTokens 380` +
+  `nativeScoreFloor .35`; bge-m3 (mean) dim 1024 legacy `.72/.5`; bge-m3:cls:q8
+  `.70/.5` + edgeSimMin `.60` + `reliableSegmentTokens 768` + `nativeScoreFloor .40`.
+- `DEFAULT_MODEL = "Xenova/bge-m3:cls:q8"` (embedding-onnx.ts:225) ≡ minified `uU`.
+- `applyEmbedderDerivedThresholds` (engine.ts:10311–10323) is **exact**: `.55`/
+  `.4` fallbacks and `semantic ? 0.45 : 0.4` for `edgeSimMin`.
+- Naming refinement only: minified `Sd = {.72,.5}` is now
+  `LEGACY_UNMEASURED_THRESHOLDS` (embedding-onnx.ts:198) with an explicit
+  "known guess, not evidence — kept so an unmeasured model still runs" label.
+  Value unchanged; the label is the point.
+- **RE-01 confirmed** (no CLI/env override): thresholds still only reachable via
+  the constructor `tauAttach`/`tauAmbiguous`/`edgeSimMin` opts
+  (engine.ts:2611, `explicitThresholdOpts`); no env/CLI path added.
+
 ## Next candidates
 
 1. Full search pipeline (memory_search): score fusion order, limit/truncation,

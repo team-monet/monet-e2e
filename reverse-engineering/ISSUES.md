@@ -116,3 +116,17 @@ still-open bug and flips to `XPASS` when fixed); `—` = not yet E2E-verified.
   touching prod `~/.monet/sources`, redirect `HOME` to a temp dir for BOTH the
   CLI `source add` and the MCP server subprocess (test25 does this; the
   `source_storage_isolated_via_home` check proves the redirect worked).
+- **Minified-doc drift cross-check (2026-08-16, run 34):** cross-checked
+  `search-pipeline.md`, `dedup-resolution.md`, `schema-migration.md` against the
+  readable TS (`retrieval.ts`, `resolution.ts`, `lexical-overlap.ts`,
+  `embedding-onnx.ts`, `schema-version.ts`, `engine.ts`). Result:
+  **search + dedup are accurate (no drift)** — every constant, the SQL, the
+  `MODEL_PROFILES`≡`pU` table, `DEFAULT_MODEL`≡`uU`, and
+  `applyEmbedderDerivedThresholds` are value-for-value identical; the readable
+  source only adds rationale. **schema-migration has real drift**: the ladder was
+  refactored from minified single-letter constants + "unguarded DDL / no-op bump"
+  into NAMED version-gated migrations (`GRAPH=1 … FIRST_BLOCK_RETIREMENT=12`); the
+  doc's "no-op bump" labels for 2→3/3→4/5→6/6→7 are wrong (2→3 = AROUSAL is real
+  version-gated DDL; 3→4/5→6/6→7 are named sentinels), and "DDL unguarded on every
+  open" is outdated for temporal/arousal. Doc corrected in-place. RE-09 and RE-10
+  confirmed unchanged (`source` status); version 10 still skipped (9→11).

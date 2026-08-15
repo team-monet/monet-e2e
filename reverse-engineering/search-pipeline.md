@@ -224,6 +224,36 @@ and the alternatives", etc.).
 - **RE-07 (UX nit):** `limit` truncation is silent — no flag tells the caller
   more matches existed; only JSON-size truncation is reported.
 
+## Cross-check against readable TS (2026-08-16, run 34)
+
+Validated against `packages/core/src/retrieval.ts` + `lexical-overlap.ts`
+(commit 83e9d7d, core 0.9.0). **No drift — every constant and the SQL match the
+readable source.** The readable source only adds rationale the doc didn't have.
+
+- `TOKEN = /[a-z0-9][a-z0-9_-]{2,}/gu` (lexical-overlap.ts:39) = the doc's tokenizer.
+  **RE-04 (Latin-only) confirmed at source** — no change.
+- `tokenIdf = max(0, log(N/(1+df)))` (lexical-overlap.ts:60) = `z1`; the
+  `max(0, …)` clamp is the Codex-P2 / PR #156 fix the doc already showed.
+- `LEXICAL_BOOST = 1.0`, `blendLexical = score*(1+1.0*overlap)`
+  (lexical-overlap.ts:115–119) = `H1 = 1.0`.
+- `NATIVE_SCORE_FLOOR = 0.12` (retrieval.ts:70) = `W1` fallback;
+  `nativeScoreFloorOf(declared)` honours a provider value in `[0,1)` else 0.12
+  (retrieval.ts:84–88) = `Z1` clamp.
+- Per-model floors: bge-m3:cls:q8 `nativeScoreFloor: 0.40`
+  (embedding-onnx.ts:547); bge-small `0.35` (embedding-onnx.ts:344) — both match.
+- Native scorer SQL (`observation_segments UNION ALL observations-without-segments`)
+  is byte-equivalent to `scoreNativeConceptsByObservation` (retrieval.ts:192–230).
+- Lexical overlap is "per observation, max over concept" and DF is counted over
+  concepts — both confirmed (retrieval.ts:284–307; lexical-overlap.ts:63–94).
+- Source scorer `max(whole-file cosine, best active-chunk cosine)` confirmed
+  (retrieval.ts:354–384), including the "whole-file is an UNCONDITIONAL candidate
+  in the max" review fix the doc's summary did not call out.
+
+Not re-verified here (MCP handler layer, `dist/cli.js`): `limit` default 5,
+`nt=256`, `Ar=4e4`, the `resultsTruncated`/`resultsOmitted` shape. These live in
+the MCP tool handler / CLI bundle, not in `retrieval.ts`; unchanged in every
+version-bump diff to date and left as-is.
+
 ## Next candidates
 
 1. Schema migration 4→12 (migration table + sentinel) — partial.

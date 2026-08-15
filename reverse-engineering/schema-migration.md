@@ -221,6 +221,72 @@ refusing repair until diagnosis succeeds completely").
   the queue); the `W="*"` / `rd="legacy-star"` constants are now pinned here
   for that doc.
 
+## Cross-check against readable TS (2026-08-16, run 34)
+
+Validated the above (v1.5.2 dist) against the current readable source
+(`packages/core/src/schema-version.ts`, `engine.ts` — commit 83e9d7d, core 0.9.0).
+**Drift found: the ladder has been refactored from minified single-letter
+constants + "unguarded DDL / no-op bump" into NAMED, version-gated migrations.**
+Facts (sentinel, payload protocol, migration id/content formats) all survive;
+the STRUCTURE description does not.
+
+### Named ladder (engine.ts:312–356)
+
+| version | readable constant | what it gates |
+|---|---|---|
+| 1 | `GRAPH_SCHEMA_VERSION` | one-time graph backfill (still gated on `graphEnabled` + a new trustworthiness check) |
+| 2 | `TEMPORAL_SCHEMA_VERSION` | temporal layer — **version-gated DDL + backfill** (`last_confirmed_at`/`last_confirmed_session_id`, `dismissed_at`/`dismissed_by`) with State-A/B/C/D handling |
+| 3 | `AROUSAL_SCHEMA_VERSION` | V-A arousal — **version-gated DDL + backfill** (`usefulness_last_fetched_at`, `arousal_score`, `arousal_last_updated_at`) |
+| 4 | `FIRST_BLOCK_SCHEMA_VERSION` | first_block table (created by `init()`; **sentinel only**) |
+| 5 | `SYNC_SCHEMA_VERSION` | sync primitives (uq_edge safety check; **sentinel**) |
+| 6 | `SOURCE_SCHEMA_VERSION` | source-concept prerequisites (tables from `init()`; **sentinel**) |
+| 7 | `SOURCE_REGISTRY_SCHEMA_VERSION` | knowledge_sources registry (**sentinel**) |
+| 8 | `SYNC_CLOSURE_SCHEMA_VERSION` | `ensureSyncClosureSchema()` — unchanged from the doc |
+| 9 | `SOURCE_LEDGER_SCHEMA_VERSION` | source ledger (**sentinel**) |
+| 11 | `SOURCE_FILE_CONCEPT_SCHEMA_VERSION` | file=concept reshape (index swap + columns) |
+| 12 | `FIRST_BLOCK_RETIREMENT_SCHEMA_VERSION` | `migrateFirstBlockPins()` — unchanged |
+
+### Corrections to this doc's "no-op" labels
+
+The doc labels 2→3, 3→4, 5→6, 6→7 as "no-op bump". In the readable source
+those rungs are NOT no-ops:
+
+- **2→3 (AROUSAL)** is real version-gated DDL + backfill — the doc's "no-op"
+  label is wrong.
+- **3→4 (FIRST_BLOCK)** and **5→6 (SOURCE)** / **6→7 (SOURCE_REGISTRY)** are
+  *sentinels*: their tables are created idempotently by `init()`/the registry
+  before `migrate()`, so the rung is a milestone marker with no DDL of its own.
+  "No-op" under-describes them — each names a real subsystem.
+
+### Other corrections
+
+- The doc's "DDL steps before 1→2 are **unguarded by version** — they run on
+  every open" is OUTDATED for temporal/arousal: those two are now version-gated
+  migrations with guarded `ALTER` + backfill (State A/B/C/D for temporal), not
+  an every-open "applying_remote wrap".
+- **RE-09 refinement (confirms run-33 note):** `MONET_SCHEMA_VERSION = 12` is a
+  SINGLE named const in `schema-version.ts` (imported by engine/diagnostics).
+  The individual rung numbers are now NAMED constants, but still literal
+  integers in engine.ts. RE-09 ("hardcoded in 3+ places") remains a
+  *dist-bundle* concern — the readable source has centralized the top-of-ladder
+  number. No change to RE-09's `source` status.
+- **RE-10 confirmed:** version 10 is still skipped (9 → 11). The readable
+  source's own comment on `SOURCE_FILE_CONCEPT_SCHEMA_VERSION` says "next free
+  sequential slot after SOURCE_LEDGER_SCHEMA_VERSION (9)" yet the value is 11 —
+  consistent with a withdrawn version-10 migration (cf. the #187 note at
+  `FIRST_BLOCK_RETIREMENT_SCHEMA_VERSION`). No change to RE-10's `source` status.
+
+### Confirmed unchanged (facts survive)
+
+- `SYNC_PAYLOAD_PROTOCOL_VERSION = 15` (engine.ts:341) = minified `Gf` — now
+  with a changelog comment (11: +lifecycle_edges/ratifications; 12: +stages/
+  rule_bindings; 13: +concepts.skeleton_breadth; 14: first_block retired;
+  15: +ratifications.entrance/battery).
+- `FIRST_BLOCK_OBSERVATION_AUTHOR = "schema-12-first-block-migration"` (line 357) = `zT`.
+- `FIRST_BLOCK_OBSERVATION_PREFIX = "First Block pin (surface retired 2026-08-02): "` (line 358) = `FT`.
+- `firstBlockObservationId` = `fb-migration:` + sha256(id+`\0`+sha256(summary))[:32] (lines 364–372) = `HT`.
+- `migrateFirstBlockPins` runs in `immediateTransaction`, window `[9,12) → 12` (lines 3797–3846) — matches the doc.
+
 ## Next steps
 1. Circle routing / aliases lifecycle (create/archive/`*` breadth) — includes
    `resolveCircle`, `circle_aliases` statuses, `migrateLegacyStarCircle` tail.
