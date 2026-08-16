@@ -8,6 +8,22 @@
 Status vocabulary matches `ISSUES.md`. Severity: S1 data loss / S2 scalability/
 operability / S3 missing-signal / S4 cosmetic.
 
+## ⚠️ Product-direction signal (2026-08-16) — source subsystem provisionally retired
+
+The **source subsystem** (`monet source` CLI + `source_*` MCP tools) is
+**"provisionally retired"** per the author's own commit message
+(team-monet/monet `eafaf3c`, John Lee, 2026-08-15, shipped as v1.6.3): *"Stop
+documenting the provisionally retired source subsystem … Documentation only —
+the commands and MCP tools are untouched and still work. Withdrawing docs is
+reversible; a user's dependency on a withdrawn feature is not."*
+
+Implication for this queue: **RE-30, RE-29, RE-24 (S2), RE-23 (S3), and the
+RE-30-blocked RE-05 are all source-subsystem (or source-search) issues.** Fixing
+them is now lower priority — if the subsystem is removed, the bugs become moot.
+Fix them ONLY if sources are revived. The three source E2E tests (test25/26/28)
+remain in the suite as regression guardrails while the tools still ship, but
+their XFAILs no longer imply an urgent fix.
+
 ## S2 (scalability / operability / security — will bite in production)
 
 | Issue | Test | Bug |

@@ -134,3 +134,15 @@ still-open bug and flips to `XPASS` when fixed); `—` = not yet E2E-verified.
   version-gated DDL; 3→4/5→6/6→7 are named sentinels), and "DDL unguarded on every
   open" is outdated for temporal/arousal. Doc corrected in-place. RE-09 and RE-10
   confirmed unchanged (`source` status); version 10 still skipped (9→11).
+- **Source subsystem provisionally retired (2026-08-16, run 37):** the author's
+  own commit (team-monet/monet `eafaf3c`, John Lee, 2026-08-15, v1.6.3) declares
+  the source subsystem *"provisionally retired"* and withdraws ~90 lines of the
+  npm README's `monet source` docs. Commands and MCP tools are untouched and
+  still work — it is a docs/product-direction signal, not a behavioral change.
+  Implication: **RE-30, RE-29, RE-24 (S2), RE-23 (S3), and the RE-30-blocked
+  RE-05 are all source-subsystem issues on a deprecation path** — their fix
+  priority drops; fix only if sources are revived. The 3 source E2E tests
+  (test25/26/28) stay as regression guardrails. Recorded in `L2-code-fix-queue.md`
+  (new "Product-direction signal" section) and `sources-sync.md` (retirement
+  banner). Run 36 had misread this commit as "docs-only, no behavioral change"
+  and missed the prioritization implication.

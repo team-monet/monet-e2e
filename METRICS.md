@@ -30,6 +30,7 @@
 | 2026-08-15 (run 32) | 32 | 100 | 0 | 1..32 all (22,24,25,26,27,28,29,30,31,32 = XFAIL, 23 = XPASS) | Run 32: test32 (RE-32 livingModel score opacity) added — RE-32 CONFIRMED (S4, card discards livingModelScore, opaque ordering); version-bump re-check 1.6.1→1.6.3 via isolated prefix: 23 MCP tools + root help identical, all 31 tests identical (no bug fixed, no regression — 1.6.3 safe but resolves zero XFAIL); RE-10 → source. Suite 21/32 green + 10 xfail + 1 xpass, 413 assertions |
 
 | 2026-08-16 (run 36) | 32 | 100 | 0 | 1..32 all (22,24,25,26,27,28,29,30,31,32 = XFAIL, 23 = XPASS) | Run 36: full-suite regression diagnosed & fixed — disk 100% full (ENOSPC) made the 3 source tests (test25/26/28) re-download the ~550 MB bge-m3 model (HOME redirect moves the model cache into the empty fake home); server died "no space left on device" → 3 FAILs. Fixed by setting MONET_MODEL_CACHE to the real ~/.monet/models in all three source tests (read-only reuse, no re-download). Re-verified: 21/32 pass + 10 xfail + 1 xpass, 0 fail. Source tests now 1.5–2.5 s (were 19–23 s). Disk-full itself is a John action item. |
+| 2026-08-16 (run 37) | 32 | 100 | 0 | 1..32 all (22,24,25,26,27,28,29,30,31,32 = XFAIL, 23 = XPASS) | Run 37: source subsystem "provisionally retired" (author commit eafaf3c, v1.6.3) captured — L2 queue re-prioritized (RE-30/29/24/23/05 on a deprecation path, fix only if sources revive); no test change; no new version to re-verify (npm still 1.6.3) |
 
 ## Metric definitions
 

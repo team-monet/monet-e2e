@@ -10,6 +10,14 @@
 > Companion (source-level only, E2E-unverified): the E2E store has **no**
 > `knowledge_sources` table, so none of this is exercised by the harness yet.
 
+> ## ⚠️ PROVISIONALLY RETIRED (2026-08-16)
+> The source subsystem is **provisionally retired** per the author's commit
+> (team-monet/monet `eafaf3c`, John Lee, 2026-08-15, v1.6.3 — "Stop documenting
+> the provisionally retired source subsystem"). Docs withdrawn (~90 lines of the
+> npm README); the commands and MCP tools are **untouched and still work**.
+> This entire module (and RE-23..25, RE-29, RE-30) is on a deprecation path —
+> fix only if sources are revived.
+
 ## 1. Component map
 
 | Component | Symbol | Role |
