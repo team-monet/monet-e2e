@@ -17,46 +17,65 @@ documenting the provisionally retired source subsystem … Documentation only �
 the commands and MCP tools are untouched and still work. Withdrawing docs is
 reversible; a user's dependency on a withdrawn feature is not."*
 
-Implication for this queue: **RE-30, RE-29, RE-24 (S2), RE-23 (S3), and the
-RE-30-blocked RE-05 are all source-subsystem (or source-search) issues.** Fixing
-them is now lower priority — if the subsystem is removed, the bugs become moot.
-Fix them ONLY if sources are revived. The three source E2E tests (test25/26/28)
-remain in the suite as regression guardrails while the tools still ship, but
-their XFAILs no longer imply an urgent fix.
+**RE-30, RE-29, RE-24 (S2), RE-23 (S3), and the RE-30-blocked RE-05 are all
+source-subsystem (or source-search) issues — moved OFF the active fix queue and
+onto a deprecation path (below).** If the subsystem is removed, the bugs become
+moot; fix them ONLY if sources are revived. The three source E2E tests
+(test25/26/28) remain in the suite as regression guardrails while the tools
+still ship, but their XFAILs no longer imply an urgent fix.
 
-## S2 (scalability / operability / security — will bite in production)
+## Active fix queue — 7 confirmed bugs (non-deprecated)
+
+### S2 (scalability / operability / security — will bite in production)
 
 | Issue | Test | Bug |
 |-------|------|-----|
-| RE-30 | test25 | `source_sync` fails `EACCES` on macOS — `sealSnapshot` chmods the tree `0o500` then `renameSync` into place; APFS refuses the in-place rename of a non-writable dir. **Blocks RE-05.** |
-| RE-29 | test25 | `sourceStorageDir` hard-defaults to `~/.monet/sources` and is NOT scoped by `-d` — isolated-source work silently writes to prod. |
-| RE-24 | test28 | `source update --allow-caller <other>` REPLACES the caller list and silently de-authorizes the acting caller (rc=0, no warning); next `source_list` returns `[]`. |
 | RE-26 | test29 | `gate_events` has no retention/pruning — one row per `stage_lookup` call; will become the largest table (2–3 orders > `resolution_events`). |
 
-## S3 (missing signal / UX / maintenance risk)
+### S3 (missing signal / UX / maintenance risk)
 
 | Issue | Test | Bug |
 |-------|------|-----|
-| RE-23 | test26 | `monet start` derives a fallback identity when `MONET_CALLER_ID`/`MONET_PROJECT_ID` are unset, so `source_list` silently returns `[]` — the identity mismatch is not discoverable. |
 | RE-17 | test24 | `memory_store` into an archived circle succeeds silently (no guard); the `isArchivedCircle` door exists but store never consults it. |
 | RE-07 | test22 | `limit` truncation is silent — no flag tells the caller more matches existed. |
 | RE-04 | test30 | Lexical rank arm is Latin-script-only — Korean/Japanese queries (and stored content) get zero lexical contribution. |
 | RE-33 | test31 | `slow-queries.jsonl` is write-only — no doctor/CLI/MCP surface reads it. |
 
-## S4 (cosmetic / by-design note)
+### S4 (cosmetic / by-design note)
 
 | Issue | Test | Bug |
 |-------|------|-----|
 | RE-21 | test27 | `/api/graph` `graphDensity` counts `possible_duplicate_of` edges, inflating structural density. |
 | RE-32 | test32 | `livingModelCard` discards the ranking score + per-signal breakdown — ordering is opaque. |
 
+## Pending XFAIL confirmation (S2, `open` — join the active queue once E2E-confirmed)
+
+| Issue | Status | Bug |
+|-------|--------|-----|
+| RE-43 | open | `monet repair` self-deadlocks on every English-only target — `recheckNonEnglish` opens a second connection while `applyRepair` holds exclusive ownership → `SQLITE_BUSY` (deterministic, single-process). |
+| RE-44 | open | `monet materialize` renders an unsynthesized (dirty) skeleton concept's concatenated body as governing text — no `dirty`/`needsSynthesis` guard; silent wrong governing text on the always-on surface. |
+
+## Deprecation path (on-hold — fix only if the source subsystem is revived)
+
+> Source-subsystem issues, `provisionally retired` (`eafaf3c`, v1.6.3). The
+> commands still ship, so the E2E XFAILs stay as guardrails, but fixing them is
+> deferred until sources are un-retired.
+
+| Issue | Test | Severity | Bug |
+|-------|------|----------|-----|
+| RE-30 | test25 | S2 | `source_sync` fails `EACCES` on macOS — `sealSnapshot` chmods the tree `0o500` then `renameSync` into place; APFS refuses the in-place rename of a non-writable dir. **Blocks RE-05.** |
+| RE-29 | test25 | S2 | `sourceStorageDir` hard-defaults to `~/.monet/sources` and is NOT scoped by `-d` — isolated-source work silently writes to prod. |
+| RE-24 | test28 | S2 | `source update --allow-caller <other>` REPLACES the caller list and silently de-authorizes the acting caller (rc=0, no warning). |
+| RE-23 | test26 | S3 | `monet start` derives a fallback identity when `MONET_CALLER_ID`/`MONET_PROJECT_ID` are unset, so `source_list` silently returns `[]` — the identity mismatch is not discoverable. |
+| RE-05 | — | S4 | Source concepts skip `nativeScoreFloor` (any score>0 enters) while native concepts below floor are dropped — unverifiable until RE-30 is fixed. |
+
 ## Dependencies / unblock ordering
 
-- **RE-30 → RE-05**: RE-05 (source concepts skip `nativeScoreFloor`) is the last
-  `open` behavioral issue and cannot be E2E-verified until `source_sync` works on
-  macOS (RE-30). Fix RE-30 first; RE-05 then becomes verifiable.
+- **RE-30 → RE-05**: RE-05 is the last `open` behavioral issue and cannot be
+  E2E-verified until `source_sync` works on macOS (RE-30). Both are on the
+  deprecation path, so this dependency is also on-hold.
 - **RE-29 + RE-30 share test25**: both live in the sources/sync path; a single
-  sources-sync hardening pass can address both.
+  sources-sync hardening pass can address both — deferred with the subsystem.
 
 ## Already fixed (removed from the queue)
 
@@ -65,8 +84,10 @@ their XFAILs no longer imply an urgent fix.
 
 ## Notes
 
-- All 11 rows above are `confirmed` (E2E XFAIL), 0 speculative. Structural
-  issues (`source` status, e.g. RE-01/03/09/13/31/35/36) are deliberately
-  excluded here — they route to code-fix separately but are not E2E-observable.
+- Active queue = 7 confirmed (E2E XFAIL), 0 speculative. Structural issues
+  (`source` status, e.g. RE-42 S1 repair `--target`) are deliberately excluded
+  here — they route to code-fix separately but are not E2E-observable.
+- Deprecation path = 5 source-subsystem issues, deferred until sources are
+  un-retired (reversible docs withdrawal, per the author).
 - Re-verify the whole XFAIL set on each `@team-monet/monet` version bump; an
   XFAIL→XPASS flip means the bug shipped fixed and this table shrinks.
