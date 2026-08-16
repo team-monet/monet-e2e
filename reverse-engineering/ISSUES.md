@@ -70,6 +70,9 @@ still-open bug and flips to `XPASS` when fixed); `—` = not yet E2E-verified.
 | RE-39 | The "result truncated" note text is dead and duplicated: `RESULT_TRUNCATE_NOTE` (module scope) and a byte-identical local `okNote` (memory_fetch) are each referenced ONLY via `.length` as sizeBudget headroom — neither string is ever emitted. When `ok()` actually exceeds the ceiling it emits a DIFFERENT wording ("…the original payload was omitted."). Two dead copies of a note + a wording divergence (the reserved note suggests narrowing/lowering `limit`/`memory_fetch`; the emitted note only says "payload omitted") | mcp-server.md | source | — | S4 |
 | RE-40 | `RegisterMonetCoreToolsOpts.checkpointNudge` is a deprecated no-op ("Checkpoint response nags are no longer emitted") still present in the public options interface — dead API surface | mcp-server.md | source | — | S4 |
 | RE-41 | `cosine(a, b)` computes the dot product over `Math.min(a.length, b.length)` and returns a value in `[-1,1]` for ANY two vector lengths — a mismatched-dimension comparison yields a plausible-looking but meaningless score instead of erroring, silently re-opening (one level down) the cross-space compare that `PinnedStoreEmbedderUnavailableError` and the graft `EmbedderMismatchError` exist to fail LOUD on. Latent: no call site reaches it with mismatched dims (provider `dim` contract + `validateEmbeddingProviderOutput` + pin/graft guards all precede it) | embedding.md | source | — | S4 |
+| RE-42 | `monet repair --target` accepts any unrecognized string as an exact model ID — `resolveTargetAlias` special-cases only onnx/hashing/blank/`dim:` and returns everything else verbatim, and no profile-registry check exists anywhere in the preflight→`migrateEmbeddings` path. A loadable-but-unregistered `owner/repo` id silently repins the store into an unmeasured space (`mean` pooling, legacy thresholds, fallback budgets) with the verified backup as the only mitigation; a typo surfaces as a download error misread as a network problem. The `readsOnlyLatinScript` one-way guard cannot fire for unregistered targets (field is profile-derived → `undefined`). Fix needs core to expose a "known profile" accessor (registry is module-private) | repair-cli.md | source | — | S1 |
+| RE-43 | `monet repair` self-deadlocks on every English-only target: `recheckNonEnglish` opens a second better-sqlite3 connection via `inspectStoredEmbedderState` while `applyRepair`'s port holds exclusive ownership (`createVerifiedBackup` retains it; `releaseExclusiveOwnership` is catch-only) → `SQLITE_BUSY` after the 5s busy_timeout. Deterministic, single-process. Only workaround `--accept-non-latin-loss` disables the very guard the recheck enforces. Fails closed (no rewrite, backup retained) | repair-cli.md | open | — | S2 |
+| RE-44 | `monet materialize` renders an unsynthesized (dirty) skeleton concept's concatenated body as governing text — `skeletonMemberRows` filters on status/verdict but has NO `dirty`/`needsSynthesis` guard, so an amended principle ships both old+new paragraphs and `mirrorStale` reports green (block hash matches the store). Silent wrong governing text on the always-on surface, recoverable via synthesize+rematerialize | materialize-cli.md | open | — | S2 |
 
 ## Maintenance notes
 
@@ -159,3 +162,20 @@ still-open bug and flips to `XPASS` when fixed); `—` = not yet E2E-verified.
   `Math.min` length handling silently re-opens the cross-space-compare failure the
   pin/graft guards exist to fail loud on — latent S4). Modules 19→22, issues
   40→41.
+- **Upstream issue batch cross-reference (2026-08-16, run 39):** JohnOnLee filed
+  ~20 issues on `team-monet/monet` (recreated 2026-08-16 from the private
+  `monet-client` tracker). Three point at CLI modules not yet in this registry and
+  are now registered with source verification: **#15 → RE-42** (repair `--target`
+  accepts arbitrary id, S1), **#14 → RE-43** (repair self-deadlock on English-only
+  target, S2, `open`/XFAIL candidate), **#23 → RE-44** (materialize renders dirty
+  skeleton body, S2, `open`/XFAIL candidate). Line numbers in #14/#15 verified
+  exact against the current readable source (no drift). The remainder map to
+  already-documented or DIRECTION-halt-listed modules and are cross-referenced, not
+  re-analyzed: #16 (source retirement → RE-23/24/29/30, run 37), #2 (Korean search
+  → RE-04/05), #8 (agents/stig.md tool-name omission — already known),
+  #26-30 + #31-33 (gate instrumentation / dashboard epics — `gates`/`dashboard`
+  are halt-listed), #19/#20 (storage busy_timeout starvation / no `interrupt` —
+  `storage.ts` documented run 38, specific findings not yet independently
+  RE-registered), #13 (mcp startup "transport connects last" — `mcp-server.ts`
+  documented run 35), #17 (surfaces emitting a verdict where they hold a not-known
+  — multi-module), #12/#21/#22 (startup/CI test-infra flakes).
