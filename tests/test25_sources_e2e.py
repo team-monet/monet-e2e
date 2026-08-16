@@ -42,6 +42,15 @@ PROJECT = "e2e-project"
 # the redirect actually worked (see the source_storage_isolated_via_home check).
 REAL_HOME = os.path.expanduser("~")
 
+# The HOME redirect below (to isolate source storage, RE-29) also moves the
+# embedder model cache (~/.monet/models) into the fake home, which is empty, so
+# the server re-downloads the ~550 MB bge-m3 model every run. Point the cache
+# back at the REAL location so the cached model is reused (read-only) and the
+# server never re-downloads — this also hardens the test against a full disk
+# (ENOSPC on model download was observed failing these tests on 2026-08-16).
+REAL_MODEL_CACHE = os.path.join(REAL_HOME, ".monet", "models")
+os.environ["MONET_MODEL_CACHE"] = REAL_MODEL_CACHE
+
 # mcp_client resolves MONET_CLI / MONET_NODE_PATH at import time, so they must
 # be set in the environment BEFORE the import below.
 os.environ["MONET_CLI"] = CLI

@@ -36,6 +36,13 @@ PROJECT = "e2e-project"
 ATTACKER = "e2e-attacker"
 REAL_HOME = os.path.expanduser("~")
 
+# See test25: the HOME redirect (source-storage isolation, RE-29) moves the
+# model cache into the empty fake home, forcing a ~550 MB re-download. Point it
+# back at the real cache so the model is reused read-only and the server never
+# re-downloads (hardens against full-disk ENOSPC).
+REAL_MODEL_CACHE = os.path.join(REAL_HOME, ".monet", "models")
+os.environ["MONET_MODEL_CACHE"] = REAL_MODEL_CACHE
+
 os.environ["MONET_CLI"] = CLI
 os.environ["MONET_NODE_PATH"] = NODE
 

@@ -29,6 +29,8 @@
 | 2026-08-15 (run 31) | 31 | 100 | 0 | 1..31 all (22,24,25,26,27,28,29,30,31 = XFAIL, 23 = XPASS) | Run 31: test29 (RE-26 gate_events retention) + test30 (RE-04 Korean lexical) + test31 (RE-33 slow-queries write-only) added — all CONFIRMED via XFAIL; RE-29 e2e_test fixed (— → test25); RE-14 → by-design; RE-01/09/11/31 → source. Suite 21/31 green + 9 xfail + 1 xpass, 409 assertions |
 | 2026-08-15 (run 32) | 32 | 100 | 0 | 1..32 all (22,24,25,26,27,28,29,30,31,32 = XFAIL, 23 = XPASS) | Run 32: test32 (RE-32 livingModel score opacity) added — RE-32 CONFIRMED (S4, card discards livingModelScore, opaque ordering); version-bump re-check 1.6.1→1.6.3 via isolated prefix: 23 MCP tools + root help identical, all 31 tests identical (no bug fixed, no regression — 1.6.3 safe but resolves zero XFAIL); RE-10 → source. Suite 21/32 green + 10 xfail + 1 xpass, 413 assertions |
 
+| 2026-08-16 (run 36) | 32 | 100 | 0 | 1..32 all (22,24,25,26,27,28,29,30,31,32 = XFAIL, 23 = XPASS) | Run 36: full-suite regression diagnosed & fixed — disk 100% full (ENOSPC) made the 3 source tests (test25/26/28) re-download the ~550 MB bge-m3 model (HOME redirect moves the model cache into the empty fake home); server died "no space left on device" → 3 FAILs. Fixed by setting MONET_MODEL_CACHE to the real ~/.monet/models in all three source tests (read-only reuse, no re-download). Re-verified: 21/32 pass + 10 xfail + 1 xpass, 0 fail. Source tests now 1.5–2.5 s (were 19–23 s). Disk-full itself is a John action item. |
+
 ## Metric definitions
 
 - **Tests**: number of verification scenarios/tests present in the isolated environment
