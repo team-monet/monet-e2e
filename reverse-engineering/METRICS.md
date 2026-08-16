@@ -21,6 +21,7 @@
 | 2026-08-15 | 16 — diagnostics (doctor/repair preflight) + source chunker (2 modules, readable TS) | 181 (+21: MONET_SCHEMA_VERSION=12 single const, MALFORMED_EMBEDDING_SAMPLE_LIMIT 20, safety assessment vocab {missing,safe,unsafe,unknown}, PIN_SOURCES {created,backfilled,migrated}, migration abandon classification {safe,refused,unsupported,unknown}, diagnostic failure reason {locked,not-sqlite,unreadable}, snapshot temp prefix monet-readonly-diagnostic-*, non-Latin sample quotas 3 obs+2 concept, conditional readonly open, DEFAULT_SOURCE_MAX_CHUNKS 100000, MIN_SOURCE_SECTION_BYTES 200, hashSourceDomain NUL+8-byte-BE framing, frontmatter flat-model rules, sourceHeadingAnchor _root/_untitled NFC slug, sourceRef <path>#<anchor>~<occurrence>, documentSequence 1-based post-merge, minimum-merge direction+cap-over-minimum, splitUtf8 code-point iteration, fence atomic fail-closed, quick_check single-ok gate, sqlite open timeout 5000) | 36 (+2: RE-35..RE-36) | `diagnostics.ts` = the `monet doctor`/`repair` embedder-state preflight (safety assessment ladder, #188 snapshot isolation — read-write throwaway copy when no WAL, read-only real file when WAL present, non-Latin scan over 4 populations, migration abandon classification) + report-only lifecycle-edge integrity sweep (RE-35: no operator surface). `source-chunker.ts` = Markdown → deterministic chunks (fail-closed flat frontmatter, ATX-only sections, min-chunk merge, line-boundary segmentation with atomic fences, content/ingest/op hashing, sourceRef). RE-36: splitUtf8 splits by code point not grapheme. See `diagnostics.md` + `source-chunker.md` |
 | 2026-08-16 | 18 (+2: render-overview, extract-entities) — 3 docs cross-checked vs readable TS (1 corrected for drift) + 2 new modules documented | 205 (+24) | 38 (+2: RE-37, RE-38) | Run 34 (DIRECTION priority #1 + #2, issues #7 + #8): (1) minified-doc drift cross-check — `search-pipeline.md` + `dedup-resolution.md` verified NO drift (every constant/SQL/`MODEL_PROFILES`≡`pU`/`DEFAULT_MODEL`≡`uU`/`applyEmbedderDerivedThresholds` value-for-value identical vs `retrieval.ts`/`resolution.ts`/`lexical-overlap.ts`/`embedding-onnx.ts`/`engine.ts`); `schema-migration.md` had REAL drift (ladder refactored into NAMED version-gated migrations `GRAPH=1…FIRST_BLOCK_RETIREMENT=12`; "no-op bump" labels 2→3/3→4/5→6/6→7 wrong; corrected in-place); RE-09/RE-10 reconfirmed (`source`). (2) documented `render-overview.ts` (terminal curation renderer; RE-37: no operator surface, S3) + `extract-entities.ts` (entity extraction for `about` edges; RE-38: .ts/.mjs mirror, S4). (3) added `L2-code-fix-queue.md` (11 confirmed bugs severity-ordered). |
 | 2026-08-16 (run 35) | 19 (+1: mcp-server wire layer) | 231 (+26) | 40 (+2: RE-39, RE-40) | Run 35: documented `mcp-server.ts` (3 503 lines — the largest core file after engine.ts), the MCP **wire layer** the module docs deliberately left out. Covers the 23-tool roster (17 memory_* + 4 source_* + agent_context + stage_lookup; 21→23 = memory_retire+restore), the size-fit result-shaping layer (RESULT_MAX_CHARS=40 000 whole-payload-omission `ok()` net, iterative JSON.stringify size-fit not count caps, stage_lookup 3-tier omitted-rule recovery outline→ids→count-only), auto-prewarm one-shot (snapshot-before-mutation, consumed-on-success/discarded-on-error), model-tag "one chain" (blank=absent, read-at-call-time), server-bound source auth (never a tool arg), and graceful-shutdown machinery (in-flight quiesce 10 s + referenced-timer barrier 30 s + signal exit codes). New issues RE-39 (truncation-note text dead+duplicated — only `.length` used, never emitted, diverges from ok()'s actual wording) + RE-40 (checkpointNudge deprecated no-op in public opts). See `mcp-server.md` |
+| 2026-08-16 (run 38) | 22 (+3: storage, embedding, store-embedder) | 257 (+26) | 41 (+1: RE-41) | Run 38: documented the three remaining undocumented readable-TS modules NOT in the DIRECTION halt list (queued by run 35): `storage.ts` (StoragePort seam + BetterSqlitePort; WAL+busy_timeout 5000 shared topology; StoreBusyError holder-naming via readInflightStatements filtered by dbPath; exclusive-ownership dance for repair with warmSchemaRead + user_version±1 probe; verified repair backup quick_check+chmod 0600+hard-link no-clobber; readStoredEmbedderPin/readStoredVectorPresence read-only peeks), `embedding.ts` (EmbeddingProvider model-adapter seam + 4 per-space flags inputWindow/countTokens/needsLexicalArm/readsOnlyLatinScript; HashingEmbeddingProvider tokenizer-versioned v1 ASCII/v2 Unicode, FNV-1a sign hashing, modelId hashing:dim:tok; cosine/blend/blendWeighted/embToJson/jsonToEmb/isZeroVector/normalize), `store-embedder.ts` (chooseStoreEmbedder three-state startup decision — pinned/legacy/fresh — and the no-silent-downgrade refusal; FreshStoreEmbedderUnavailableError/PinnedStoreEmbedderUnavailableError). New issue RE-41 (cosine() Math.min silently re-opens cross-space compare, latent S4). See `storage.md` + `embedding.md` + `store-embedder.md` |
 
 ## Module inventory
 
@@ -47,6 +48,9 @@
 | Render overview / curation workbench (`renderOverview`) | src/render-overview.ts | **DOCUMENTED** | `render-overview.md` |
 | Entity extraction (`extractEntities`, `singularize`, `stripKoreanParticle`, `normalizeToken`, `KOREAN_PARTICLES`, `LEXICON`, `STOPWORDS`) | src/extract-entities.ts (+ `.mjs` mirror) | **DOCUMENTED** | `extract-entities.md` |
 | MCP wire layer (`registerMonetCoreTools` 23-tool roster, `ok()`/`err()`/`clip()` result shaping, `fitObjectArray`/`fitStringArray`/`fitRecallEnvelope`/`fitOverviewEnvelope`, `wrapSuccess` auto-prewarm, `capturePrewarmSnapshot`, `buildPrewarmBlock`, `deriveOptsFromEnv`, `withShutdownBarrier`/`getInFlightTracker` graceful shutdown) | src/mcp-server.ts | **DOCUMENTED** | `mcp-server.md` |
+| Storage port & driver (`StoragePort` seam, `BetterSqlitePort`, `storeContentionError`/`StoreBusyError`, `acquireExclusiveOwnership`/`releaseExclusiveOwnership`, `createVerifiedBackup`/`publishVerifiedBackup`, `readStoredEmbedderPin`, `readStoredVectorPresence`) | src/storage.ts | **DOCUMENTED** | `storage.md` |
+| Embedding provider seam & vector math (`EmbeddingProvider`, `EmbeddingThresholds`, `validateEmbeddingProviderOutput`, `HashingEmbeddingProvider`, `HASHING_TOKENIZERS`, `cosine`/`blend`/`blendWeighted`/`embToJson`/`jsonToEmb`/`isZeroVector`/`normalize`/`hash32`) | src/embedding.ts | **DOCUMENTED** | `embedding.md` |
+| Store embedder selection (`chooseStoreEmbedder`, `requireSemanticOrExplicitLexical`, `FreshStoreEmbedderUnavailableError`, `PinnedStoreEmbedderUnavailableError`) | src/store-embedder.ts | **DOCUMENTED** | `store-embedder.md` |
 
 ## Identified parameters (running list)
 
@@ -289,6 +293,33 @@
 | `MONET_CALLER_ID`+`MONET_PROJECT_ID` | both required | mcp-server.ts | server-bound source auth identity |
 | `MONET_MODEL_TAG` | blank = absent | mcp-server.ts | agent-scope compensation model tag (trim+blank→undefined) |
 | `checkpointNudge` | deprecated no-op | mcp-server.ts | RE-40 dead API surface in RegisterMonetCoreToolsOpts |
+
+| `journal_mode` | `WAL` | storage.ts | shared MCP-server + CLI topology |
+| `busy_timeout` | 5 000 ms | storage.ts | contention wait budget |
+| exclusive probe | `user_version` ±1 (INT32_MAX 2 147 483 647 guard) | storage.ts | reversible real write to retain the exclusive lock |
+| `locking_mode` | `EXCLUSIVE` (acquire) / `NORMAL` (release) | storage.ts | repair ownership dance |
+| `warmSchemaRead` | `SELECT name FROM sqlite_schema LIMIT 1` | storage.ts | real page access before/after mode switch |
+| backup partial name | `.<name>.partial-<pid>-<uuid>` | storage.ts | per-call unique, cleaned on any failure |
+| backup mode | `chmod 0600` | storage.ts | published backup file |
+| `quick_check` gate | single `ok` row | storage.ts | else `VerifiedBackupVerificationError` |
+| backup publish | hard-link (`link`), EEXIST → refuse | storage.ts | atomic + no-clobber (vs rename) |
+| peek open | `readonly: true, fileMustExist: true` | storage.ts | no create/migrate/journal-mode change |
+| holder filter | `readInflightStatements(dirname).filter(h => h.dbPath === dbPath)` | storage.ts | multi-store directory safety |
+| `HASHING_TOKENIZER_VERSION` | 2 | embedding.ts | fresh-default tokenizer |
+| hashing `dim` default | 256 | embedding.ts | vector width |
+| hashing `modelId` | `hashing:dim=<dim>:tok=<ver>` | embedding.ts | vector-space identity for graft rejection |
+| hashing `tauAttach` / `tauAmbiguous` | `.55` / `.40` | embedding.ts | lexical cosine bands (looser than semantic) |
+| feature weights | word 1.0, char-trigram 0.5 | embedding.ts | hashing features |
+| sign hashing | `(h & 1) === 0 ? +1 : -1` | embedding.ts | collision-bias reduction |
+| `hash32` | FNV-1a (offset 0x811c9dc5, prime 0x01000193) | embedding.ts | feature → bucket |
+| `cosine` length | `Math.min(a.length, b.length)` | embedding.ts | dot over common prefix (RE-41) |
+| `normalize` zero-guard | `Math.sqrt(mag) \|\| 1` | embedding.ts | all-zero stays all-zero |
+| tokenizer v1 | `[a-z0-9\s]` strip (ASCII-only) | embedding.ts | resurrected for old pinned stores |
+| tokenizer v2 | `[^\p{L}\p{N}\s]` strip (Unicode `u`) | embedding.ts | keeps Korean/CJK/Cyrillic |
+| pin source | `sync_meta.embedder_model_id` (singleton row) | store-embedder.ts | durable embedder identity |
+| vector presence | `observations` any row OR `concepts` non-null `embedding` | store-embedder.ts | `true`/`false`/`null` |
+| `MONET_EMBEDDER` | `onnx` (default) \| `hashing` (explicit lexical opt-in) | store-embedder.ts | embedder selection env |
+| empty-store recovery | `readStoredVectorPresence === false` | store-embedder.ts | pin-load failure defers to engine re-pin |
 
 ## Stagnation detection
 

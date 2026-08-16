@@ -69,6 +69,7 @@ still-open bug and flips to `XPASS` when fixed); `—` = not yet E2E-verified.
 | RE-38 | `extractEntities` logic is duplicated between `extract-entities.ts` and its byte-for-byte `extract-entities.mjs` mirror (added so plain-node `scrub-db.mjs` can re-run the same extraction without a TS-import dependency). Same "two files must change in lockstep" risk as RE-03, but lower severity because drift is caught by a mirror-identity test | extract-entities.md | source | — | S4 |
 | RE-39 | The "result truncated" note text is dead and duplicated: `RESULT_TRUNCATE_NOTE` (module scope) and a byte-identical local `okNote` (memory_fetch) are each referenced ONLY via `.length` as sizeBudget headroom — neither string is ever emitted. When `ok()` actually exceeds the ceiling it emits a DIFFERENT wording ("…the original payload was omitted."). Two dead copies of a note + a wording divergence (the reserved note suggests narrowing/lowering `limit`/`memory_fetch`; the emitted note only says "payload omitted") | mcp-server.md | source | — | S4 |
 | RE-40 | `RegisterMonetCoreToolsOpts.checkpointNudge` is a deprecated no-op ("Checkpoint response nags are no longer emitted") still present in the public options interface — dead API surface | mcp-server.md | source | — | S4 |
+| RE-41 | `cosine(a, b)` computes the dot product over `Math.min(a.length, b.length)` and returns a value in `[-1,1]` for ANY two vector lengths — a mismatched-dimension comparison yields a plausible-looking but meaningless score instead of erroring, silently re-opening (one level down) the cross-space compare that `PinnedStoreEmbedderUnavailableError` and the graft `EmbedderMismatchError` exist to fail LOUD on. Latent: no call site reaches it with mismatched dims (provider `dim` contract + `validateEmbeddingProviderOutput` + pin/graft guards all precede it) | embedding.md | source | — | S4 |
 
 ## Maintenance notes
 
@@ -146,3 +147,15 @@ still-open bug and flips to `XPASS` when fixed); `—` = not yet E2E-verified.
   (new "Product-direction signal" section) and `sources-sync.md` (retirement
   banner). Run 36 had misread this commit as "docs-only, no behavioral change"
   and missed the prioritization implication.
+- **Foundational-module documentation (2026-08-16, run 38):** documented the three
+  remaining undocumented readable-TS modules that were NOT in the DIRECTION halt
+  list and were queued by run 35: `storage.ts` (the `StoragePort` persistence seam,
+  `BetterSqlitePort`, exclusive-ownership dance for `repair`, verified repair
+  backup, `readStoredEmbedderPin`/`readStoredVectorPresence` read-only peeks),
+  `embedding.ts` (the `EmbeddingProvider` model-adapter seam, the four per-space
+  flags, `HashingEmbeddingProvider` with tokenizer versioning, vector helpers), and
+  `store-embedder.ts` (the `chooseStoreEmbedder` three-state startup decision and
+  the no-silent-downgrade refusal). One new issue: **RE-41** (`cosine()`'s
+  `Math.min` length handling silently re-opens the cross-space-compare failure the
+  pin/graft guards exist to fail loud on — latent S4). Modules 19→22, issues
+  40→41.
