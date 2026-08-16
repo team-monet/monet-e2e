@@ -71,8 +71,8 @@ still-open bug and flips to `XPASS` when fixed); `—` = not yet E2E-verified.
 | RE-40 | `RegisterMonetCoreToolsOpts.checkpointNudge` is a deprecated no-op ("Checkpoint response nags are no longer emitted") still present in the public options interface — dead API surface | mcp-server.md | source | — | S4 |
 | RE-41 | `cosine(a, b)` computes the dot product over `Math.min(a.length, b.length)` and returns a value in `[-1,1]` for ANY two vector lengths — a mismatched-dimension comparison yields a plausible-looking but meaningless score instead of erroring, silently re-opening (one level down) the cross-space compare that `PinnedStoreEmbedderUnavailableError` and the graft `EmbedderMismatchError` exist to fail LOUD on. Latent: no call site reaches it with mismatched dims (provider `dim` contract + `validateEmbeddingProviderOutput` + pin/graft guards all precede it) | embedding.md | source | — | S4 |
 | RE-42 | `monet repair --target` accepts any unrecognized string as an exact model ID — `resolveTargetAlias` special-cases only onnx/hashing/blank/`dim:` and returns everything else verbatim, and no profile-registry check exists anywhere in the preflight→`migrateEmbeddings` path. A loadable-but-unregistered `owner/repo` id silently repins the store into an unmeasured space (`mean` pooling, legacy thresholds, fallback budgets) with the verified backup as the only mitigation; a typo surfaces as a download error misread as a network problem. The `readsOnlyLatinScript` one-way guard cannot fire for unregistered targets (field is profile-derived → `undefined`). Fix needs core to expose a "known profile" accessor (registry is module-private) | repair-cli.md | source | — | S1 |
-| RE-43 | `monet repair` self-deadlocks on every English-only target: `recheckNonEnglish` opens a second better-sqlite3 connection via `inspectStoredEmbedderState` while `applyRepair`'s port holds exclusive ownership (`createVerifiedBackup` retains it; `releaseExclusiveOwnership` is catch-only) → `SQLITE_BUSY` after the 5s busy_timeout. Deterministic, single-process. Only workaround `--accept-non-latin-loss` disables the very guard the recheck enforces. Fails closed (no rewrite, backup retained) | repair-cli.md | open | — | S2 |
-| RE-44 | `monet materialize` renders an unsynthesized (dirty) skeleton concept's concatenated body as governing text — `skeletonMemberRows` filters on status/verdict but has NO `dirty`/`needsSynthesis` guard, so an amended principle ships both old+new paragraphs and `mirrorStale` reports green (block hash matches the store). Silent wrong governing text on the always-on surface, recoverable via synthesize+rematerialize | materialize-cli.md | open | — | S2 |
+| RE-43 | `monet repair` self-deadlocks on every English-only target: `recheckNonEnglish` opens a second better-sqlite3 connection via `inspectStoredEmbedderState` while `applyRepair`'s port holds exclusive ownership (`createVerifiedBackup` retains it; `releaseExclusiveOwnership` is catch-only) → `SQLITE_BUSY` after the 5s busy_timeout. Deterministic, single-process. Only workaround `--accept-non-latin-loss` disables the very guard the recheck enforces. Fails closed (no rewrite, backup retained) | repair-cli.md | confirmed | test33 | S2 |
+| RE-44 | `monet materialize` renders an unsynthesized (dirty) skeleton concept's concatenated body as governing text — `skeletonMemberRows` filters on status/verdict but has NO `dirty`/`needsSynthesis` guard, so an amended principle ships both old+new paragraphs and `mirrorStale` reports green (block hash matches the store). Silent wrong governing text on the always-on surface, recoverable via synthesize+rematerialize | materialize-cli.md | confirmed | test34 | S2 |
 
 ## Maintenance notes
 
@@ -179,3 +179,15 @@ still-open bug and flips to `XPASS` when fixed); `—` = not yet E2E-verified.
   RE-registered), #13 (mcp startup "transport connects last" — `mcp-server.ts`
   documented run 35), #17 (surfaces emitting a verdict where they hold a not-known
   — multi-module), #12/#21/#22 (startup/CI test-infra flakes).
+- **E2E verification loop (2026-08-17, run 40):** RE-43 and RE-44 converted to
+  XFAIL tests and CONFIRMED. **RE-43** (repair self-deadlock, test33): an
+  all-English store + `repair --target Xenova/bge-small-en-v1.5 --apply --yes`
+  fails `database is locked` (SQLITE_BUSY) — `recheckNonEnglish` opens a second
+  connection under `applyRepair`'s exclusive lock; fails closed (backup retained,
+  store stays on bge-m3:cls:q8). **RE-44** (materialize dirty skeleton, test34):
+  a principle amended via near-identical re-declare attaches (`action=attached`)
+  → `needsSynthesis=True`, obs=2, body = old+new concatenation, and `materialize`
+  renders BOTH paragraphs verbatim with `mirrorStale` green (no dirty/needsSynthesis
+  guard in `skeletonMemberRows`). Both `open` → `confirmed`, `e2e_test` set
+  (`—` → test33/test34), GitHub issues #9/#10 commented + closed. Both join the
+  L2 code-fix queue (with RE-26/RE-42) for John's promotion call.
