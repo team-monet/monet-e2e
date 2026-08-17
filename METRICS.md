@@ -45,7 +45,7 @@ remap (see the `monet-e2e-testing` skill, "Code line coverage (line %)" section)
 
 | Date | Source files | Lines covered | Total lines | Line coverage (%) | Notes |
 |------|-------------|---------------|-------------|-------------------|-------|
-| 2026-08-18 | 50 (37 core + 13 cli) | 42,751 | 53,505 | 79.9 | Coda-measured baseline. Core engine ~91–99%; gaps cluster in sources machinery (source-git 3%, source-chunker 6%, source-materializer 37%) + CLI subcommands (config-cli 0%, install-cli 5%, gate-cli 7%). |
+| 2026-08-18 | 50 (37 core + 13 cli) | 42,843 | 53,505 | 80.1 | Coda-measured baseline. test35 (`monet config`, first CLI-subcommand scenario) added — config-cli.ts 0%→59.6% (executable code ~fully covered; the residual is the file's doc comment). Core engine ~91–99%; remaining gaps cluster in sources machinery (source-git 3%, source-chunker 6%) + CLI subcommands (install-cli 5%, gate-cli 7% are the big remaining CLI targets). |
 
 ## Metric definitions
 
