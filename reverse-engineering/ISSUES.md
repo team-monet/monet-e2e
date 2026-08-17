@@ -73,6 +73,8 @@ still-open bug and flips to `XPASS` when fixed); `—` = not yet E2E-verified.
 | RE-42 | `monet repair --target` accepts any unrecognized string as an exact model ID — `resolveTargetAlias` special-cases only onnx/hashing/blank/`dim:` and returns everything else verbatim, and no profile-registry check exists anywhere in the preflight→`migrateEmbeddings` path. A loadable-but-unregistered `owner/repo` id silently repins the store into an unmeasured space (`mean` pooling, legacy thresholds, fallback budgets) with the verified backup as the only mitigation; a typo surfaces as a download error misread as a network problem. The `readsOnlyLatinScript` one-way guard cannot fire for unregistered targets (field is profile-derived → `undefined`). Fix needs core to expose a "known profile" accessor (registry is module-private) | repair-cli.md | source | — | S1 |
 | RE-43 | `monet repair` self-deadlocks on every English-only target: `recheckNonEnglish` opens a second better-sqlite3 connection via `inspectStoredEmbedderState` while `applyRepair`'s port holds exclusive ownership (`createVerifiedBackup` retains it; `releaseExclusiveOwnership` is catch-only) → `SQLITE_BUSY` after the 5s busy_timeout. Deterministic, single-process. Only workaround `--accept-non-latin-loss` disables the very guard the recheck enforces. Fails closed (no rewrite, backup retained) | repair-cli.md | confirmed | test33 | S2 |
 | RE-44 | `monet materialize` renders an unsynthesized (dirty) skeleton concept's concatenated body as governing text — `skeletonMemberRows` filters on status/verdict but has NO `dirty`/`needsSynthesis` guard, so an amended principle ships both old+new paragraphs and `mirrorStale` reports green (block hash matches the store). Silent wrong governing text on the always-on surface, recoverable via synthesize+rematerialize | materialize-cli.md | confirmed | test34 | S2 |
+| RE-45 | `busy_timeout=5000` is starved by multi-minute concurrent write bursts (single WAL writer slot vs ~12 long-lived `monet start` processes); `memory_fetch` is a HIDDEN WRITER — `getConcept` runs an unprotected usefulness-bump UPDATE + may inline-synthesize a dirty concept, so a competing writer's burst makes even "reads" report `database is locked` (upstream #19) | storage.md | open | — | S2 |
+| RE-46 | Nothing bounds a statement: better-sqlite3 11.10.0 exposes no `interrupt`/progress handler, so one query can hold the write lock indefinitely (`busy_timeout` bounds *waiting*, not *holding*); `inspectStoredEmbeddingRows`/`readLiveEmbeddingRows` materializes every row's full embedding JSON via `.all()` before the fold (upstream #20) | storage.md | source | — | S2 |
 
 ## Maintenance notes
 
@@ -202,3 +204,60 @@ still-open bug and flips to `XPASS` when fixed); `—` = not yet E2E-verified.
   surface, not E2E-verifiable. #27/#28/#29/#30 = `gateStats`/per-rule/read-dimension
   gaps (core-internal). #31/#32/#33 = dashboard epics. #50 = re-measure (depends on
   #49). No E2E action this run.
+- **Upstream #19/#20 independent verification (2026-08-18, run 43):** the two
+  concrete claims from upstream `team-monet/monet` #19 and #20 were verified
+  against the readable source and registered as RE-45 (#19) and RE-46 (#20).
+  **Verified against current readable source (line numbers are the CURRENT
+  monorepo layout; the upstream issues cite pre-monorepo line numbers that have
+  drifted):**
+  - `busy_timeout = 5000` — `storage.ts:253` (`this.pragma("busy_timeout = 5000")`),
+    with the #215 nuance at `storage.ts:226-230`: better-sqlite3 arms
+    `sqlite3_busy_timeout` from its own `timeout` option at open (default 5000),
+    and the explicit pragma runs AFTER the wait it looks like it governs.
+  - **`memory_fetch` is a hidden writer** — `engine.ts:5054-5056`: `getConcept`
+    runs `UPDATE concepts SET usefulness_score = usefulness_score + 1,
+    usefulness_last_fetched_at = ? WHERE id = ?` UNPROTECTED (no SQLITE_BUSY
+    catch, no transaction, fires before the read result is assembled); and
+    `engine.ts:5057-5059`: `if (synthesizedNow) row = await this.synthesizeRow(row)`
+    — a dirty concept is inline-synthesized on fetch. Either write failing under
+    contention fails the ENTIRE fetch. (Upstream cited `engine.ts:3330-3334`,
+    now `5054-5059`.)
+  - **`checkpoint()` synthesizes every dirty concept in one loop** —
+    `engine.ts:5106-5107`: `SELECT * FROM concepts WHERE dirty = 1 … .all(circle)`
+    then `for (const r of rows) await this.synthesizeRow(r)` — no yield/batch/cap
+    between iterations, so a large dirty debt (live store: 179) is a minutes-long
+    write window at every session end. (Upstream cited `engine.ts:3368-3375`.)
+  - **No `interrupt`/progress handler** — verified against the installed driver
+    `better-sqlite3 11.10.0` (`packages/core/node_modules`): prototype methods are
+    `constructor prepare transaction pragma backup serialize function aggregate
+    table loadExtension exec close defaultSafeIntegers unsafeMode` — no `interrupt`,
+    no progress handler. `busy_timeout` bounds waiting for a lock, not holding one.
+  - **`inspectStoredEmbeddingRows` materializes full embeddings** —
+    `embedding-state.ts:128`: `readLiveEmbeddingRows` returns
+    `db.prepare(LIVE_EMBEDDING_SQL[population]).all()` over `SELECT id, embedding`
+    (the FULL embedding JSON column, every live row), and `inspectStoredEmbeddingRows`
+    (`:131`) folds the array in JS afterward — memory grows linearly with population
+    size before the reduction. (The upstream issue named the function
+    `inspectStoredEmbeddingRows`; in the current source the `.all()` lives one hop
+    away in `readLiveEmbeddingRows`, which the inspector calls.)
+  - **Deterministic contention probe (empirical, isolated):** a second
+    better-sqlite3 connection writing while another holds `BEGIN IMMEDIATE` fails
+    `SQLITE_BUSY` ("database is locked") after **~11.8 s** — not 5 s — because in
+    WAL mode the open-time `timeout` default and the explicit `busy_timeout=5000`
+    pragma stack. This confirms the contention mechanism is deterministic and
+    reproducible, and pins the safe hold-time for a future test.
+  - **#19 E2E-verifiability judgment:** REPRODUCIBLE as a deterministic
+    scenario-9-extension XFAIL. Recipe: isolated store with a live concept → raw
+    better-sqlite3 connection holds `BEGIN IMMEDIATE` (one tiny write) for ≥12 s →
+    MCP `memory_fetch` on the concept → its usefulness-bump UPDATE blocks → the
+    whole fetch fails `database is locked`. Desired contract to assert: *a fetch
+    (read) must not fail on a telemetry write — the bump should be best-effort and
+    the concept still returned.* **Flagged as E2E follow-up test35** (NOT
+    implemented this run — verification-only scope, per DIRECTION). RE-45 status
+    stays `open` (E2E-verifiable, not yet reproduced as an XFAIL).
+  - **#20 status:** `source` (structural) — "no interrupt" is a driver-API
+    property (not MCP/CLI-observable without a deliberately bad query) and the
+    `.all()` materialization is a scalability observation, not a clean behavioral
+    XFAIL. Routes to the code-fix queue, not the E2E verifier.
+  - storage.ts was NOT re-documented (DIRECTION "검증만"); the verification detail
+    lives here. GitHub issue #11 commented + closed.

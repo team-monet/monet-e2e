@@ -54,6 +54,7 @@ still ship, but their XFAILs no longer imply an urgent fix.
 |-------|--------|-----|
 | RE-43 | open | `monet repair` self-deadlocks on every English-only target — `recheckNonEnglish` opens a second connection while `applyRepair` holds exclusive ownership → `SQLITE_BUSY` (deterministic, single-process). |
 | RE-44 | open | `monet materialize` renders an unsynthesized (dirty) skeleton concept's concatenated body as governing text — no `dirty`/`needsSynthesis` guard; silent wrong governing text on the always-on surface. |
+| RE-45 | open | `busy_timeout=5000` starved by multi-minute concurrent write bursts; `memory_fetch` is a hidden writer (unprotected usefulness-bump UPDATE + inline synthesize fail the whole fetch under contention). **Flagged test35 (scenario-9 extension) — deterministic raw `BEGIN IMMEDIATE`-holder reproduction; verify on next E2E run.** |
 
 ## Deprecation path (on-hold — fix only if the source subsystem is revived)
 
