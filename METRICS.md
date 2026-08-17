@@ -36,6 +36,17 @@
 | 2026-08-17 (run 41) | 34 | 100 | 0 | 1..34 all (22,24,25,26,27,28,29,30,31,32,33,34 = XFAIL, 23 = XPASS) | Run 41: stability check — full suite re-run confirms 21/34 pass + 12 xfail + 1 xpass + 0 fail (identical to run 40, no drift/regression); upstream sweep found issues #38–#48 are 11 near-duplicate copies of RE-33 (slow-queries write-only, already test31 XFAIL) — no new test, flagged for consolidation |
 | 2026-08-17 (run 42) | 34 | 100 | 0 | 1..34 all (22,24,25,26,27,28,29,30,31,32,33,34 = XFAIL, 23 = XPASS) | Run 42: upstream gate/dashboard sweep — 13 NEW issues (#27–#37, #49–#50, John's v1.7.0 gate-instrumentation milestone) all in halt-listed modules (gates/dashboard), none MCP/CLI-observable → no new test; #36 ≡ RE-27 (by-design), #37/#49 new-but-core-internal/hook-path; env healthy (disk 38%); no version bump (npm 1.6.3) |
 
+## Code line coverage (E2E-driven, added 2026-08-18)
+
+Distinct from the scenario-basis "Coverage (%)" above (which measures how many of
+the core scenarios exist, and hit 100% on day 2). This measures the share of
+actual monet SOURCE lines the E2E suite executes — via V8 coverage + source-map
+remap (see the `monet-e2e-testing` skill, "Code line coverage (line %)" section).
+
+| Date | Source files | Lines covered | Total lines | Line coverage (%) | Notes |
+|------|-------------|---------------|-------------|-------------------|-------|
+| 2026-08-18 | 50 (37 core + 13 cli) | 42,751 | 53,505 | 79.9 | Coda-measured baseline. Core engine ~91–99%; gaps cluster in sources machinery (source-git 3%, source-chunker 6%, source-materializer 37%) + CLI subcommands (config-cli 0%, install-cli 5%, gate-cli 7%). |
+
 ## Metric definitions
 
 - **Tests**: number of verification scenarios/tests present in the isolated environment
@@ -45,6 +56,10 @@
 - **Failure (%)**: share of tests failing UNEXPECTEDLY in the most recent run.
   Known-bug tests (XFAIL, exit 2) are tracked separately and do NOT count as
   failures; a flip to XPASS (exit 3) is a signal to update the issue status.
+- **Code line coverage (%)**: share of monet source lines executed by the E2E
+  suite (V8 coverage remapped through the esbuild source map). Added 2026-08-18;
+  measures code paths hit, NOT correctness — silent/opaque design gaps pass with
+  100% coverage of their path (see the skill's coverage section).
 
 ## Stagnation detection rules
 
