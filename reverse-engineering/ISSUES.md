@@ -191,3 +191,14 @@ still-open bug and flips to `XPASS` when fixed); `—` = not yet E2E-verified.
   guard in `skeletonMemberRows`). Both `open` → `confirmed`, `e2e_test` set
   (`—` → test33/test34), GitHub issues #9/#10 commented + closed. Both join the
   L2 code-fix queue (with RE-26/RE-42) for John's promotion call.
+- **Upstream gate/dashboard batch (2026-08-17, run 42):** 13 new upstream issues
+  filed 2026-08-16/17 (#27–#33, #36, #37, #49, #50 — John's v1.7.0 "gate
+  instrumentation" milestone) are all in halt-listed modules (`gates.md` RE-26/27/28,
+  `dashboard.md` RE-20/21/22). No new RE issue registered (redundant with the
+  author's own line-numbered upstream reports). #36 ≡ RE-27 (conformance judgment
+  half, by-design). #37 (conformance over-credits hook-path denies + double
+  annotation) and #49 (hook clips rule directive to 80-char `firstLine()` display
+  width) are NEW behavioral findings but core-internal / hook-path — no MCP/CLI
+  surface, not E2E-verifiable. #27/#28/#29/#30 = `gateStats`/per-rule/read-dimension
+  gaps (core-internal). #31/#32/#33 = dashboard epics. #50 = re-measure (depends on
+  #49). No E2E action this run.
