@@ -24,13 +24,16 @@ moot; fix them ONLY if sources are revived. The three source E2E tests
 (test25/26/28) remain in the suite as regression guardrails while the tools
 still ship, but their XFAILs no longer imply an urgent fix.
 
-## Active fix queue — 7 confirmed bugs (non-deprecated)
+## Active fix queue — 10 confirmed bugs (non-deprecated)
 
 ### S2 (scalability / operability / security — will bite in production)
 
 | Issue | Test | Bug |
 |-------|------|-----|
 | RE-26 | test29 | `gate_events` has no retention/pruning — one row per `stage_lookup` call; will become the largest table (2–3 orders > `resolution_events`). |
+| RE-43 | test33 | `monet repair` self-deadlocks on every English-only target — `recheckNonEnglish` opens a second connection while `applyRepair` holds exclusive ownership → `SQLITE_BUSY` (deterministic, single-process). Fails closed (backup retained). |
+| RE-44 | test34 | `monet materialize` renders an unsynthesized (dirty) skeleton concept's concatenated body as governing text — no `dirty`/`needsSynthesis` guard; silent wrong governing text on the always-on surface. |
+| RE-45 | test36 | `busy_timeout=5000` starved by concurrent write bursts; `memory_fetch` is a hidden writer — the unprotected usefulness-bump UPDATE (and optional inline synthesize) fail the whole fetch under contention, so a pure read returns `database is locked`. |
 
 ### S3 (missing signal / UX / maintenance risk)
 
@@ -47,14 +50,6 @@ still ship, but their XFAILs no longer imply an urgent fix.
 |-------|------|-----|
 | RE-21 | test27 | `/api/graph` `graphDensity` counts `possible_duplicate_of` edges, inflating structural density. |
 | RE-32 | test32 | `livingModelCard` discards the ranking score + per-signal breakdown — ordering is opaque. |
-
-## Pending XFAIL confirmation (S2, `open` — join the active queue once E2E-confirmed)
-
-| Issue | Status | Bug |
-|-------|--------|-----|
-| RE-43 | open | `monet repair` self-deadlocks on every English-only target — `recheckNonEnglish` opens a second connection while `applyRepair` holds exclusive ownership → `SQLITE_BUSY` (deterministic, single-process). |
-| RE-44 | open | `monet materialize` renders an unsynthesized (dirty) skeleton concept's concatenated body as governing text — no `dirty`/`needsSynthesis` guard; silent wrong governing text on the always-on surface. |
-| RE-45 | open | `busy_timeout=5000` starved by multi-minute concurrent write bursts; `memory_fetch` is a hidden writer (unprotected usefulness-bump UPDATE + inline synthesize fail the whole fetch under contention). **Flagged test35 (scenario-9 extension) — deterministic raw `BEGIN IMMEDIATE`-holder reproduction; verify on next E2E run.** |
 
 ## Deprecation path (on-hold — fix only if the source subsystem is revived)
 
@@ -85,7 +80,7 @@ still ship, but their XFAILs no longer imply an urgent fix.
 
 ## Notes
 
-- Active queue = 7 confirmed (E2E XFAIL), 0 speculative. Structural issues
+- Active queue = 10 confirmed (E2E XFAIL), 0 speculative. Structural issues
   (`source` status, e.g. RE-42 S1 repair `--target`) are deliberately excluded
   here — they route to code-fix separately but are not E2E-observable.
 - Deprecation path = 5 source-subsystem issues, deferred until sources are

@@ -73,7 +73,7 @@ still-open bug and flips to `XPASS` when fixed); `—` = not yet E2E-verified.
 | RE-42 | `monet repair --target` accepts any unrecognized string as an exact model ID — `resolveTargetAlias` special-cases only onnx/hashing/blank/`dim:` and returns everything else verbatim, and no profile-registry check exists anywhere in the preflight→`migrateEmbeddings` path. A loadable-but-unregistered `owner/repo` id silently repins the store into an unmeasured space (`mean` pooling, legacy thresholds, fallback budgets) with the verified backup as the only mitigation; a typo surfaces as a download error misread as a network problem. The `readsOnlyLatinScript` one-way guard cannot fire for unregistered targets (field is profile-derived → `undefined`). Fix needs core to expose a "known profile" accessor (registry is module-private) | repair-cli.md | source | — | S1 |
 | RE-43 | `monet repair` self-deadlocks on every English-only target: `recheckNonEnglish` opens a second better-sqlite3 connection via `inspectStoredEmbedderState` while `applyRepair`'s port holds exclusive ownership (`createVerifiedBackup` retains it; `releaseExclusiveOwnership` is catch-only) → `SQLITE_BUSY` after the 5s busy_timeout. Deterministic, single-process. Only workaround `--accept-non-latin-loss` disables the very guard the recheck enforces. Fails closed (no rewrite, backup retained) | repair-cli.md | confirmed | test33 | S2 |
 | RE-44 | `monet materialize` renders an unsynthesized (dirty) skeleton concept's concatenated body as governing text — `skeletonMemberRows` filters on status/verdict but has NO `dirty`/`needsSynthesis` guard, so an amended principle ships both old+new paragraphs and `mirrorStale` reports green (block hash matches the store). Silent wrong governing text on the always-on surface, recoverable via synthesize+rematerialize | materialize-cli.md | confirmed | test34 | S2 |
-| RE-45 | `busy_timeout=5000` is starved by multi-minute concurrent write bursts (single WAL writer slot vs ~12 long-lived `monet start` processes); `memory_fetch` is a HIDDEN WRITER — `getConcept` runs an unprotected usefulness-bump UPDATE + may inline-synthesize a dirty concept, so a competing writer's burst makes even "reads" report `database is locked` (upstream #19) | storage.md | open | — | S2 |
+| RE-45 | `busy_timeout=5000` is starved by multi-minute concurrent write bursts (single WAL writer slot vs ~12 long-lived `monet start` processes); `memory_fetch` is a HIDDEN WRITER — `getConcept` runs an unprotected usefulness-bump UPDATE + may inline-synthesize a dirty concept, so a competing writer's burst makes even "reads" report `database is locked` (upstream #19) | storage.md | confirmed | test36 | S2 |
 | RE-46 | Nothing bounds a statement: better-sqlite3 11.10.0 exposes no `interrupt`/progress handler, so one query can hold the write lock indefinitely (`busy_timeout` bounds *waiting*, not *holding*); `inspectStoredEmbeddingRows`/`readLiveEmbeddingRows` materializes every row's full embedding JSON via `.all()` before the fold (upstream #20) | storage.md | source | — | S2 |
 
 ## Maintenance notes
@@ -261,3 +261,14 @@ still-open bug and flips to `XPASS` when fixed); `—` = not yet E2E-verified.
     XFAIL. Routes to the code-fix queue, not the E2E verifier.
   - storage.ts was NOT re-documented (DIRECTION "검증만"); the verification detail
     lives here. GitHub issue #11 commented + closed.
+- **E2E verification loop (2026-08-18, run 44):** RE-45 converted to XFAIL test36
+  and CONFIRMED. **RE-45** (memory_fetch hidden writer, test36): a second
+  connection (Python sqlite3, stdlib) holds `BEGIN IMMEDIATE` + one insert on the
+  store's WAL file; `memory_fetch` on a live concept blocks on its unprotected
+  usefulness-bump UPDATE for the stacked busy_timeout (~11.8 s in WAL: open-time
+  `timeout` default + explicit `busy_timeout=5000` pragma) and then the whole
+  fetch returns `fetch failed: database is locked` (a pure read fails on a
+  telemetry write). Deterministic — 5 setup checks pass, fetch observed
+  `elapsed≈12.6 s`. Desired contract asserted: the fetch must return the concept
+  (bump best-effort). `open` → `confirmed`, `e2e_test` set (`—` → test36).
+  GitHub issue #12 commented + closed. RE-45 joins the L2 code-fix queue.
