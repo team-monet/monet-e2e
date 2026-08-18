@@ -75,6 +75,8 @@ still-open bug and flips to `XPASS` when fixed); `—` = not yet E2E-verified.
 | RE-44 | `monet materialize` renders an unsynthesized (dirty) skeleton concept's concatenated body as governing text — `skeletonMemberRows` filters on status/verdict but has NO `dirty`/`needsSynthesis` guard, so an amended principle ships both old+new paragraphs and `mirrorStale` reports green (block hash matches the store). Silent wrong governing text on the always-on surface, recoverable via synthesize+rematerialize | materialize-cli.md | confirmed | test34 | S2 |
 | RE-45 | `busy_timeout=5000` is starved by multi-minute concurrent write bursts (single WAL writer slot vs ~12 long-lived `monet start` processes); `memory_fetch` is a HIDDEN WRITER — `getConcept` runs an unprotected usefulness-bump UPDATE + may inline-synthesize a dirty concept, so a competing writer's burst makes even "reads" report `database is locked` (upstream #19) | storage.md | confirmed | test36 | S2 |
 | RE-46 | Nothing bounds a statement: better-sqlite3 11.10.0 exposes no `interrupt`/progress handler, so one query can hold the write lock indefinitely (`busy_timeout` bounds *waiting*, not *holding*); `inspectStoredEmbeddingRows`/`readLiveEmbeddingRows` materializes every row's full embedding JSON via `.all()` before the fold (upstream #20) | storage.md | source | — | S2 |
+| RE-47 | `correction-attach` exemption (resolution.ts:261-277) attaches a `kind="correction"` observation in the ambiguous band (`tauAmbiguous ≤ obsScore < tauAttach`) to the evidence-nominated concept on the "intent disambiguates" premise, then engine.ts:4810-4817 opens a value-conflict contradiction → the concept is `disputed`. But intent disambiguates WHAT a correction asserts, not WHICH concept a weak (sub-tauAttach, e.g. 0.60) evidence match points at — an unrelated correction is absorbed and marks an innocent concept contested (blast radius > a wrong observation). Reproduced: nearMatchScore 0.604 → `action: "ambiguous"` + `contradiction` open + attach | dedup-resolution.md | confirmed | test38 | S2 |
+| RE-48 | `memory_store` ack omits the attach target's title/slug/body — the MCP envelope (mcp-server.ts:969-990) returns only `conceptId`/`nearMatchId` (UUIDs) + `nearMatchScore`, dropping the `concept.slug`/`concept.title` the engine already computes (`r.concept` = toConcept(row), engine.ts:4875-4888/19120-19135) — so a mis-merge is invisible from the response alone (requires a separate `memory_fetch`). Compounds RE-47 | mcp-server.md | confirmed | test38 | S3 |
 
 ## Maintenance notes
 
@@ -272,3 +274,41 @@ still-open bug and flips to `XPASS` when fixed); `—` = not yet E2E-verified.
   `elapsed≈12.6 s`. Desired contract asserted: the fetch must return the concept
   (bump best-effort). `open` → `confirmed`, `e2e_test` set (`—` → test36).
   GitHub issue #12 commented + closed. RE-45 joins the L2 code-fix queue.
+- **Upstream #52 triage → RE-47 + RE-48 (2026-08-18, run 46):** verified upstream
+  `team-monet/monet` #52 ("memory_store auto-merge attaches an observation to an
+  unrelated concept at low similarity") against the readable source and converted
+  to XFAIL test38. Two distinct findings, both E2E-observable and CONFIRMED:
+
+  1. **RE-47 (S2) — the `correction-attach` misfile.** `resolveIncoming`
+     (resolution.ts:261-277) exempts `kind="correction"` from the ambiguous-band
+     fork: when `tauAmbiguous ≤ obsScore < tauAttach`, it returns mode
+     `correction-attach` and attaches the observation to the evidence-nominated
+     concept (the comment "intent disambiguates" justifies the exception). Then
+     `storeInternal` (engine.ts:4810-4817) opens a value-conflict contradiction
+     for any `kind="correction" && landedOnExisting`, flipping the concept to
+     `disputed`. The premise is false for a weak match: intent disambiguates WHAT
+     the correction asserts, not WHICH concept a 0.55–0.70 evidence cosine points
+     at. Empirically reproduced (deterministic, bge-m3): a caching-related
+     correction scored `nearMatchScore 0.604` (< tauAttach 0.70) → `action:
+     "ambiguous"` + `contradiction {status:"open"}` + attach. A wrong correction
+     has a larger blast radius than a wrong observation (marks healthy memory
+     contested). Upstream #52's 0.556 is the same band. Fix is a product decision
+     (fork instead of attach, or raise the correction floor — upstream "suggested
+     directions" #2/#3), so the assertion test38 pins is the OBSERVABILITY contract
+     (RE-48), which is unambiguously correct.
+
+  2. **RE-48 (S3) — the ack hides the target.** The `memory_store` MCP envelope
+     (mcp-server.ts:969-990) threads `circle`/`action`/`conceptId`/`nearMatchId`/
+     `nearMatchScore`/`contradiction`/`resolutionMode` but DROPS the
+     `concept.slug`/`concept.title` the engine already returns (`r.concept` =
+     toConcept(row), engine.ts:4875-4888 → `toConcept` 19120-19135). A caller
+     cannot tell from the response that a merge landed somewhere unrelated — the
+     fix is trivial (thread slug/title into the envelope when the action landed on
+     an existing concept; upstream "suggested direction" #1).
+
+  test38 (XFAIL, deterministic): stores a base concept, then a near-identical
+  correction (strong attach, `action: "attached"`) and the ambiguous-band
+  correction (~0.60), asserting the DESIRED contract that an attach/ambiguous ack
+  discloses a human-readable target (`title`/`slug`). Both attaches currently omit
+  it → XFAIL; the ambiguous attach also records the RE-47 evidence
+  (nearMatchScore + contradiction). GitHub issue #13 commented + closed.
