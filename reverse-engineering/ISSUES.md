@@ -77,6 +77,8 @@ still-open bug and flips to `XPASS` when fixed); `—` = not yet E2E-verified.
 | RE-46 | Nothing bounds a statement: better-sqlite3 11.10.0 exposes no `interrupt`/progress handler, so one query can hold the write lock indefinitely (`busy_timeout` bounds *waiting*, not *holding*); `inspectStoredEmbeddingRows`/`readLiveEmbeddingRows` materializes every row's full embedding JSON via `.all()` before the fold (upstream #20) | storage.md | source | — | S2 |
 | RE-47 | `correction-attach` exemption (resolution.ts:261-277) attaches a `kind="correction"` observation in the ambiguous band (`tauAmbiguous ≤ obsScore < tauAttach`) to the evidence-nominated concept on the "intent disambiguates" premise, then engine.ts:4810-4817 opens a value-conflict contradiction → the concept is `disputed`. But intent disambiguates WHAT a correction asserts, not WHICH concept a weak (sub-tauAttach, e.g. 0.60) evidence match points at — an unrelated correction is absorbed and marks an innocent concept contested (blast radius > a wrong observation). Reproduced: nearMatchScore 0.604 → `action: "ambiguous"` + `contradiction` open + attach | dedup-resolution.md | confirmed | test38 | S2 |
 | RE-48 | `memory_store` ack omits the attach target's title/slug/body — the MCP envelope (mcp-server.ts:969-990) returns only `conceptId`/`nearMatchId` (UUIDs) + `nearMatchScore`, dropping the `concept.slug`/`concept.title` the engine already computes (`r.concept` = toConcept(row), engine.ts:4875-4888/19120-19135) — so a mis-merge is invisible from the response alone (requires a separate `memory_fetch`). Compounds RE-47 | mcp-server.md | confirmed | test38 | S3 |
+| RE-49 | `stage_lookup` clips `body`/`reason` and discards `clip()`'s `.clipped` flag — no `bodyTruncated`/`reasonTruncated` emitted, and the tool description's "omission recovery fields" covers omitted RULES only, so a clipped rule body has no disclosed recovery path (unlike `memory_fetch`, which emits `bodyTruncated` + instructs "recover from observations"); `conceptId` IS returned so the recovery path exists but is undisclosed | mcp-server.md | open | — | S3 |
+| RE-50 | Startup failure cannot say why it died: `await server.connect(transport)` (mcp-server.ts:3491) is the first moment anything can be said in MCP terms — `ensureEmbedderPin()` (3466, model load) and both entry points' store-open+model-load (`chooseStoreEmbedder`, mcp-cli.ts:38-51) all run before the protocol channel exists, so every cause reads as "Connection closed" (-32000); fixing it is a design decision (degraded mode vs out-of-band diagnosis), not a reorder — fail-closed is intended | mcp-server.md | source | — | S2 |
 
 ## Maintenance notes
 
@@ -325,3 +327,15 @@ still-open bug and flips to `XPASS` when fixed); `—` = not yet E2E-verified.
   the fixes are unreleased; re-verify at the next `@team-monet/monet` release
   (candidate 1.7.0). RE-26/27/28/48 are untouched by these commits. Detail in
   `diary/2026-08-19.md`.
+- **Upstream #59 + #13 triage → RE-49 + RE-50 (2026-08-19, run 48):** both
+  DIRECTION run #7 RE priorities verified against current `main` and registered.
+  **#59 → RE-49 (S3, open):** `stage_lookup` clips `body`/`reason` and discards
+  `clip()`'s `.clipped` flag — no `bodyTruncated`/`reasonTruncated` emitted, and
+  the "omission recovery fields" description covers omitted RULES only; the
+  `conceptId`→`memory_fetch` recovery path exists but is undisclosed. E2E-verifiable
+  (MCP surface) → flagged as XFAIL test39 for the E2E worker. **#13 → RE-50 (S2,
+  source):** `server.connect()` (mcp-server.ts:3491) is the first MCP-utterable
+  moment; `ensureEmbedderPin()` + entry-point store-open/model-load all run before
+  it, so every startup failure reads as "Connection closed" — a design decision
+  (degraded mode vs out-of-band diagnosis), routes to the L2 design-decision queue.
+  Line drift from the upstream citations noted (factory 3358-3414 → 3454-3510).

@@ -67,6 +67,19 @@ still ship, but their XFAILs no longer imply an urgent fix.
 | RE-23 | test26 | S3 | `monet start` derives a fallback identity when `MONET_CALLER_ID`/`MONET_PROJECT_ID` are unset, so `source_list` silently returns `[]` — the identity mismatch is not discoverable. |
 | RE-05 | — | S4 | Source concepts skip `nativeScoreFloor` (any score>0 enters) while native concepts below floor are dropped — unverifiable until RE-30 is fixed. |
 
+## Structural (source-status) issues — L2 design-decision queue
+
+> `source`-status findings: no clean behavioral XFAIL (E2E can't assert a desired
+> contract that doesn't exist yet), but each is a real fix candidate needing a code
+> or design change. Promoted by the supervisor's DIRECTION `L2 코드수정 대기열`,
+> not by an XFAIL flip. John's call on whether/how.
+
+| Issue | Severity | Problem | Design options / fix locus |
+|-------|----------|---------|----------------------------|
+| RE-42 | S1 | `monet repair --target` accepts any unrecognized string as an exact model id → silent unmeasured repin (`mean` pooling, legacy thresholds, fallback budgets); typo reads as a network error. Needs core to expose a "known profile" accessor (registry is module-private). | repair-cli.ts `resolveTargetAlias` + a profile-registry check |
+| RE-46 | S2 | No `interrupt`/progress handler (better-sqlite3 11.10.0 API) bounds *holding* a lock; `inspectStoredEmbeddingRows`/`readLiveEmbeddingRows` materializes every row's full embedding JSON via `.all()` before folding. | storage.ts / embedding-state.ts |
+| RE-50 | S2 | Startup failure cannot say why it died — `server.connect()` (mcp-server.ts:3491) is the first MCP-utterable moment; `ensureEmbedderPin()` + entry-point store-open/model-load run before it, so every cause reads as "Connection closed". Fail-closed is deliberate, so this is a design commitment. | Degraded serving mode vs out-of-band diagnosis vs narrowing the causes (upstream #13 options 1/2/3) |
+
 ## Dependencies / unblock ordering
 
 - **RE-30 → RE-05**: RE-05 is the last `open` behavioral issue and cannot be

@@ -195,6 +195,24 @@ field and silently disagreed about which rules exist.
 - **RE-40 (S4, source)** — `RegisterMonetCoreToolsOpts.checkpointNudge` is a deprecated
   no-op ("Checkpoint response nags are no longer emitted") still present in the public
   options interface — dead API surface.
+- **RE-49 (S3, open)** — `stage_lookup` clips `body` (STAGE_LOOKUP_BODY_CAP=6000) and
+  `reason` (STAGE_LOOKUP_REASON_CAP=1200) via `clip()` (146-150), but the handler
+  (1595-1625) uses only `.text` and **discards `.clipped`** — no `bodyTruncated`/
+  `reasonTruncated` flag is emitted, and the tool description's "omission recovery
+  fields" refers only to omitted RULES (`rulesOmitted`/`omittedRules`). `memory_fetch`
+  already solves the identical problem (emits `bodyTruncated:true` at 1519 + instructs
+  "recover from observations" at 1407). The `conceptId` is returned (1598), so recovery
+  via `memory_fetch(conceptId)` exists but is undisclosed. E2E-verifiable (XFAIL test39
+  candidate). Upstream #59.
+- **RE-50 (S2, source)** — `createMonetCoreMcpServer` (3454) opens the protocol channel
+  last: `ensureEmbedderPin()` (3466, model load/warm/download) runs before `new McpServer`
+  (3467), and both entry points open the store + load the model (`chooseStoreEmbedder`,
+  mcp-cli.ts:38-51) before the factory is even entered. `await server.connect(transport)`
+  (3491) is the first moment anything can be said in MCP terms, so every startup throw
+  leaves the host with only "Connection closed" (-32000). Fail-closed is deliberate
+  (never substitute another embedder), so the fix is a design decision — degraded serving
+  mode vs out-of-band diagnosis vs narrowing the causes. Routes to the L2 design-decision
+  queue (not a behavioral XFAIL). Upstream #13.
 
 ## Relationship to other docs
 
