@@ -312,3 +312,16 @@ still-open bug and flips to `XPASS` when fixed); `—` = not yet E2E-verified.
   discloses a human-readable target (`title`/`slug`). Both attaches currently omit
   it → XFAIL; the ambiguous attach also records the RE-47 evidence
   (nearMatchScore + contradiction). GitHub issue #13 commented + closed.
+- **Unreleased-source diff review (2026-08-19, run 47):** source clone
+  `~/monet/monet` was 7 commits behind `origin/main`; two substantive code
+  commits landed that were NOT in any released npm version (still 1.6.3):
+  `81976e5` (#51) and `683d261` (#58), plus the conformance attribution rewrite
+  (monet#37) folded into #51. **Upstream #49/#50** (hook clips rule directive to
+  80-char) and **upstream #37** (conformance over-credits hook-path denies +
+  double annotation) are FIXED in source; **upstream #28** (read dimension) is
+  now SHIPPED with a new MCP surface (`memory_overview.gateStats.unreadStages`/
+  `unreadStagesOmitted`). These three were previously halt-listed as
+  "core-internal, no MCP/CLI surface" (run 42). **No RE issue status flipped** —
+  the fixes are unreleased; re-verify at the next `@team-monet/monet` release
+  (candidate 1.7.0). RE-26/27/28/48 are untouched by these commits. Detail in
+  `diary/2026-08-19.md`.

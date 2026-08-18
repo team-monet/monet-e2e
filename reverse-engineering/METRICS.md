@@ -25,6 +25,8 @@
 | 2026-08-16 (run 39) | 24 (+2: repair-cli, materialize-cli) | 275 (+18) | 44 (+3: RE-42, RE-43, RE-44) | Run 39: documented the two CLI modules implicated by the upstream issue batch (JohnOnLee, 2026-08-16). `repair-cli.ts` = `monet doctor`/`repair`/`resegment` recovery surface (backup-first, refuse-loud orchestration of inspectStoredEmbedderState/instantiateEmbedderForPin/MonetCore; resolveTargetAlias → checkProvider → one-way non-Latin guard → recheckNonEnglish under exclusive ownership → migrateEmbeddings + reported-not-thrown resegment). `materialize-cli.ts` = `monet materialize add/remove/list` standing-file skeleton renderer (materialize.json manifest, breadth-disjoint scope, marker-poisoning + same-destination + CAS guards, canonicalSkeletonState hash). Registered 3 findings: RE-42 (repair --target accepts arbitrary id → silent unmeasured repin, S1/source/upstream #15), RE-43 (repair self-deadlock on English-only target, S2/open/upstream #14), RE-44 (materialize renders dirty skeleton body, S2/open/upstream #23). See `repair-cli.md` + `materialize-cli.md` |
 | 2026-08-17..18 (runs 40-46) | 24 (unchanged — E2E XFAIL conversions + upstream verification, no new module docs) | 275 (unchanged) | 48 (+4: RE-45, RE-46, RE-47, RE-48) | Runs 40-46: verification loop + upstream triage, no new module documentation. RE-43/RE-44 converted to XFAIL (test33/test34) and CONFIRMED (run 40). Upstream #19/#20 independently verified against `storage.ts` → **RE-45** (memory_fetch hidden writer — unprotected usefulness-bump UPDATE + inline synthesize fail a pure read under contention, S2) + **RE-46** (no `interrupt`/progress handler + `.all()` full-embedding materialization, S2/source) (run 43); RE-45 converted to XFAIL test36 and CONFIRMED (run 44). Upstream #52 triaged against `resolution.ts`/`engine.ts`/`mcp-server.ts` → **RE-47** (`correction-attach` exempts `kind="correction"` in the ambiguous band → mis-attach + false dispute, S2) + **RE-48** (`memory_store` ack drops the target `slug`/`title` the engine already computes → mis-merge invisible, S3), both XFAIL test38 (run 46). Issues 44 → 48. |
 
+| 2026-08-19 (run 47) | 24 (unchanged — source-diff review, no new module) | 284 (+9) | 48 (unchanged) | Source-diff review of unreleased `main` (source clone was 7 commits behind): #51 (gate record names the blocking rule + ships the read dimension `byStageRead`/`unreadStages` into `memory_overview.gateStats`) + #58 (hook payload becomes identity-only — no clipped rule text/reason) + conformance attribution rewrite (monet#37). Upstream #37/#49/#50 FIXED in source (unreleased — npm still 1.6.3); #28 now has an MCP surface. No RE status flipped pending release. Gate-halt rationale partially invalidated → flagged for supervisor. See diary 2026-08-19. |
+
 ## Module inventory
 
 | Module | File(s) | Status | Doc |
@@ -343,6 +345,16 @@
 | materialize manifest | `<storeHome>/materialize.json`; `materialized` key = raw absolute path (never normalized) | materialize-cli.ts | cross-package registry/manifest |
 | materialize write CAS | best-effort byte-snapshot compare-and-swap before rename (surface + registry) | materialize-cli.ts | refuse concurrent edit, don't clobber |
 | materialize errors | `MaterializeCliError` / `RegistryConflict` / `MarkerCollision` / `DestinationAlias` / `LossyDecode` | materialize-cli.ts | refusal vocabulary |
+
+| `INSTRUCTION_STAGE_CAP` | 8 | gate-cli.ts | hook payload stage-name + blocking-id cap (#58) |
+| gate hook payload | identity-only: stage names + blocking count + read instruction; NO rule text/reason | gate-cli.ts | #49/#58 — replaces `text — reason` (80-char clip) |
+| `blockingRuleIdsOf` | `{blockingRuleIds}` iff ≥1 blocking else `{}` | gate-journal.ts | shared which-blocked derivation (monet#37) |
+| hook deny `enforced` | `true` (was absent) | install-cli.ts | conformance reads absence as enforced; now recorded |
+| `byStageRead` | per-stage recognized `stage_lookup` deliveries, `rule_count>0` + liveness-scoped | gates.ts | read dimension (#28) |
+| `unreadStages` / `unreadStagesOmitted` | zero-read stages, cap `OVERVIEW_EXCEPTION_LIMIT`=10 | engine.ts | `memory_overview.gateStats` (MCP surface) |
+| `idx_gate_events_stage_lookup` | `(matched_stage_id, matcher, circle, ts)` | gates.ts `migrateGateColumns` | read-dimension join index (post-ALTER) |
+| `foldChainsToOneFire` / `buildChainEnforced` | one verdict per interception; enforced read across chain | conformance.ts | monet#37 double-annotation fix |
+| `verdictRuleIds` semantics | absent = single-rule fire; empty = unavailable | conformance.ts | monet#37 attribution honesty |
 
 ## Stagnation detection
 
