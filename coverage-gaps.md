@@ -8,14 +8,13 @@
 
 | Date | Source files | Lines covered | Total lines | Line coverage |
 |------|-------------|---------------|-------------|---------------|
-| 2026-08-18 | 50 (37 core + 13 cli) | 42,843 | 53,505 | 80.1% |
+| 2026-08-18 | 50 (37 core + 13 cli) | 43,840 | 53,505 | 81.9% |
 
 ## All modules (ascending coverage)
 
 | Module | Coverage | Covered | Total | Class | Deprecated |
 |--------|----------|---------|-------|-------|-----------|
 | core/source-git.ts | 3.1% | 34 | 1086 | core | yes |
-| cli/install-cli.ts | 5.3% | 75 | 1420 | cli |  |
 | core/source-chunker.ts | 5.7% | 47 | 829 | core | yes |
 | cli/gate-cli.ts | 6.9% | 74 | 1078 | cli |  |
 | core/render-overview.ts | 7.5% | 10 | 133 | core |  |
@@ -45,6 +44,7 @@
 | core/script-gate.ts | 69.2% | 27 | 39 | core |  |
 | core/observation-segmenter.ts | 70.9% | 127 | 179 | core |  |
 | core/source-scheduler.ts | 73.6% | 187 | 254 | core |  |
+| cli/install-cli.ts | 75.5% | 1072 | 1420 | cli |  |
 | core/diagnostics.ts | 75.5% | 524 | 694 | core |  |
 | core/gate-journal.ts | 83.4% | 246 | 295 | core |  |
 | core/source-errors.ts | 85.7% | 18 | 21 | core |  |
