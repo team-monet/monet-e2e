@@ -8,7 +8,7 @@
 
 | Date | Source files | Lines covered | Total lines | Line coverage |
 |------|-------------|---------------|-------------|---------------|
-| 2026-08-19 | 50 (37 core + 13 cli) | 44,738 | 53,987 | 82.9% |
+| 2026-08-19 | 50 (37 core + 13 cli) | 44,744 | 53,987 | 82.9% |
 
 ## All modules (ascending coverage)
 
@@ -21,8 +21,8 @@
 | cli/bootstrap.ts | 22.4% | 19 | 85 | cli |  |
 | cli/db/index.ts | 27.9% | 43 | 154 | cli |  |
 | core/conformance.ts | 33.1% | 169 | 510 | core |  |
-| cli/circle.ts | 36.5% | 170 | 466 | cli |  |
 | core/source-materializer.ts | 37.4% | 892 | 2388 | core | yes |
+| cli/circle.ts | 37.8% | 176 | 466 | cli |  |
 | core/spans.ts | 39.8% | 78 | 196 | core |  |
 | core/skeleton-mirror.ts | 44.3% | 90 | 203 | core |  |
 | cli/cli.ts | 49.6% | 136 | 274 | cli |  |
