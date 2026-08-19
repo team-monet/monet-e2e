@@ -8,7 +8,7 @@
 
 | Date | Source files | Lines covered | Total lines | Line coverage |
 |------|-------------|---------------|-------------|---------------|
-| 2026-08-18 | 50 (37 core + 13 cli) | 43,840 | 53,505 | 81.9% |
+| 2026-08-19 | 50 (37 core + 13 cli) | 44,738 | 53,987 | 82.9% |
 
 ## All modules (ascending coverage)
 
@@ -16,21 +16,21 @@
 |--------|----------|---------|-------|-------|-----------|
 | core/source-git.ts | 3.1% | 34 | 1086 | core | yes |
 | core/source-chunker.ts | 5.7% | 47 | 829 | core | yes |
-| cli/gate-cli.ts | 6.9% | 74 | 1078 | cli |  |
-| core/render-overview.ts | 7.5% | 10 | 133 | core |  |
+| core/render-overview.ts | 6.9% | 10 | 145 | core |  |
 | cli/project-dir.ts | 21.1% | 4 | 19 | cli |  |
 | cli/bootstrap.ts | 22.4% | 19 | 85 | cli |  |
 | cli/db/index.ts | 27.9% | 43 | 154 | cli |  |
+| core/conformance.ts | 33.1% | 169 | 510 | core |  |
 | cli/circle.ts | 36.5% | 170 | 466 | cli |  |
 | core/source-materializer.ts | 37.4% | 892 | 2388 | core | yes |
 | core/spans.ts | 39.8% | 78 | 196 | core |  |
-| core/conformance.ts | 41.2% | 159 | 386 | core |  |
 | core/skeleton-mirror.ts | 44.3% | 90 | 203 | core |  |
 | cli/cli.ts | 49.6% | 136 | 274 | cli |  |
 | core/source-safe-remove.ts | 51.8% | 190 | 367 | core | yes |
 | core/source-sync.ts | 52.0% | 835 | 1607 | core | yes |
 | core/retrieval.ts | 52.5% | 202 | 385 | core |  |
 | cli/remote-circle.ts | 53.7% | 80 | 149 | cli |  |
+| cli/gate-cli.ts | 55.0% | 675 | 1228 | cli |  |
 | core/circle.ts | 55.9% | 19 | 34 | core |  |
 | cli/config-cli.ts | 59.6% | 56 | 94 | cli |  |
 | core/embed-budget.ts | 63.3% | 31 | 49 | core |  |
@@ -44,23 +44,23 @@
 | core/script-gate.ts | 69.2% | 27 | 39 | core |  |
 | core/observation-segmenter.ts | 70.9% | 127 | 179 | core |  |
 | core/source-scheduler.ts | 73.6% | 187 | 254 | core |  |
-| cli/install-cli.ts | 75.5% | 1072 | 1420 | cli |  |
 | core/diagnostics.ts | 75.5% | 524 | 694 | core |  |
-| core/gate-journal.ts | 83.4% | 246 | 295 | core |  |
+| cli/install-cli.ts | 75.9% | 1098 | 1446 | cli |  |
 | core/source-errors.ts | 85.7% | 18 | 21 | core |  |
+| core/gate-journal.ts | 86.4% | 274 | 317 | core |  |
 | core/store-embedder.ts | 86.6% | 103 | 119 | core |  |
 | cli/repair-cli.ts | 87.7% | 1057 | 1205 | cli |  |
 | core/embedding.ts | 90.6% | 307 | 339 | core |  |
-| core/gates.ts | 91.4% | 4670 | 5109 | core |  |
 | core/embedding-state.ts | 93.0% | 185 | 199 | core |  |
+| core/gates.ts | 93.2% | 4863 | 5217 | core |  |
 | core/storage.ts | 95.5% | 631 | 661 | core |  |
-| core/index.ts | 97.1% | 397 | 409 | core |  |
+| core/index.ts | 97.1% | 401 | 413 | core |  |
 | core/synthesis.ts | 97.4% | 38 | 39 | core |  |
-| core/mcp-server.ts | 98.3% | 3445 | 3504 | core |  |
+| core/mcp-server.ts | 98.3% | 3452 | 3511 | core |  |
 | core/lexical-overlap.ts | 98.3% | 118 | 120 | core |  |
 | core/extract-entities.ts | 98.3% | 236 | 240 | core |  |
 | core/embedding-onnx.ts | 99.0% | 1333 | 1347 | core |  |
-| core/engine.ts | 99.4% | 19281 | 19402 | core |  |
+| core/engine.ts | 99.4% | 19310 | 19431 | core |  |
 | cli/dashboard/server.ts | 99.4% | 1139 | 1146 | cli |  |
 | core/source-registry.ts | 99.9% | 835 | 836 | core |  |
 | core/source-ledger.ts | 100.0% | 2219 | 2220 | core |  |

@@ -145,17 +145,19 @@ class MonetClient:
             self.proc.wait()
 
 
-def run_cli(args, env_extra=None, timeout=30):
+def run_cli(args, env_extra=None, timeout=30, stdin=None):
     """Run a `monet <args...>` CLI subcommand (NOT the MCP server) and return
     (returncode, stdout, stderr). Prepends NODE_PATH to PATH so the cli.js
     shebang resolves node@22. env_extra dict is merged over the inherited env
-    (e.g. MONET_STORAGE_DIR / MONET_CALLER_ID / MONET_PROJECT_ID)."""
+    (e.g. MONET_STORAGE_DIR / MONET_CALLER_ID / MONET_PROJECT_ID). `stdin` is
+    piped to the process (for `--stdin`-reading subcommands like `monet gate`)."""
     env = dict(os.environ)
     if NODE_PATH:
         env["PATH"] = NODE_PATH + ":" + env.get("PATH", "")
     if env_extra:
         env.update(env_extra)
-    p = subprocess.run([CLI, *args], capture_output=True, text=True, env=env, timeout=timeout)
+    p = subprocess.run([CLI, *args], capture_output=True, text=True, env=env,
+                       timeout=timeout, input=stdin)
     return p.returncode, p.stdout, p.stderr
 
 
