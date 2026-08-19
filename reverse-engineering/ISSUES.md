@@ -77,7 +77,7 @@ still-open bug and flips to `XPASS` when fixed); `—` = not yet E2E-verified.
 | RE-46 | Nothing bounds a statement: better-sqlite3 11.10.0 exposes no `interrupt`/progress handler, so one query can hold the write lock indefinitely (`busy_timeout` bounds *waiting*, not *holding*); `inspectStoredEmbeddingRows`/`readLiveEmbeddingRows` materializes every row's full embedding JSON via `.all()` before the fold (upstream #20) | storage.md | source | — | S2 |
 | RE-47 | `correction-attach` exemption (resolution.ts:261-277) attaches a `kind="correction"` observation in the ambiguous band (`tauAmbiguous ≤ obsScore < tauAttach`) to the evidence-nominated concept on the "intent disambiguates" premise, then engine.ts:4810-4817 opens a value-conflict contradiction → the concept is `disputed`. But intent disambiguates WHAT a correction asserts, not WHICH concept a weak (sub-tauAttach, e.g. 0.60) evidence match points at — an unrelated correction is absorbed and marks an innocent concept contested (blast radius > a wrong observation). Reproduced: nearMatchScore 0.604 → `action: "ambiguous"` + `contradiction` open + attach | dedup-resolution.md | confirmed | test38 | S2 |
 | RE-48 | `memory_store` ack omits the attach target's title/slug/body — the MCP envelope (mcp-server.ts:969-990) returns only `conceptId`/`nearMatchId` (UUIDs) + `nearMatchScore`, dropping the `concept.slug`/`concept.title` the engine already computes (`r.concept` = toConcept(row), engine.ts:4875-4888/19120-19135) — so a mis-merge is invisible from the response alone (requires a separate `memory_fetch`). Compounds RE-47 | mcp-server.md | confirmed | test38 | S3 |
-| RE-49 | `stage_lookup` clips `body`/`reason` and discards `clip()`'s `.clipped` flag — no `bodyTruncated`/`reasonTruncated` emitted, and the tool description's "omission recovery fields" covers omitted RULES only, so a clipped rule body has no disclosed recovery path (unlike `memory_fetch`, which emits `bodyTruncated` + instructs "recover from observations"); `conceptId` IS returned so the recovery path exists but is undisclosed | mcp-server.md | open | pending-XFAIL | S3 |
+| RE-49 | `stage_lookup` clips `body`/`reason` and discards `clip()`'s `.clipped` flag — no `bodyTruncated`/`reasonTruncated` emitted, and the tool description's "omission recovery fields" covers omitted RULES only, so a clipped rule body has no disclosed recovery path (unlike `memory_fetch`, which emits `bodyTruncated` + instructs "recover from observations"); `conceptId` IS returned so the recovery path exists but is undisclosed | mcp-server.md | confirmed | test41 | S3 |
 | RE-50 | Startup failure cannot say why it died: `await server.connect(transport)` (mcp-server.ts:3491) is the first moment anything can be said in MCP terms — `ensureEmbedderPin()` (3466, model load) and both entry points' store-open+model-load (`chooseStoreEmbedder`, mcp-cli.ts:38-51) all run before the protocol channel exists, so every cause reads as "Connection closed" (-32000); fixing it is a design decision (degraded mode vs out-of-band diagnosis), not a reorder — fail-closed is intended | mcp-server.md | source | — | S2 |
 
 ## Maintenance notes
@@ -339,3 +339,17 @@ still-open bug and flips to `XPASS` when fixed); `—` = not yet E2E-verified.
   it, so every startup failure reads as "Connection closed" — a design decision
   (degraded mode vs out-of-band diagnosis), routes to the L2 design-decision queue.
   Line drift from the upstream citations noted (factory 3358-3414 → 3454-3510).
+- **E2E verification loop (2026-08-19, run 50):** RE-49 converted to XFAIL
+  **test41** and CONFIRMED. Both DIRECTION run #7 RE priorities were already
+  triaged by run 48 (RE-49/RE-50); the one still-pending item was RE-49's
+  XFAIL — neither RE run 48 nor the two E2E runs 48/49 had written it (run 48
+  deferred XFAIL-writing to the E2E worker, run 49 re-queued it). test41 is
+  deterministic: declares a stage + an advisory rule whose body is 8100 chars
+  (> STAGE_LOOKUP_BODY_CAP=6000) → `stage_lookup` → the wire clip fires
+  (`...[truncated ...]` marker present, bodyLen 6021) but the delivered rule
+  carries keys `{body, conceptId, origin, reason, reasonMissing, scope,
+  severity, text}` with NO `bodyTruncated`/`reasonTruncated` field → exit 2
+  (XFAIL). `open` → `confirmed`, `e2e_test` `pending-XFAIL` → `test41`. Source
+  cross-check vs `main` and the installed 1.6.3 binary both reproduce
+  identically (mcp-server.ts:146-150 `clip()`, 1597-1625 handler uses only
+  `.text` and discards `.clipped`). Detail in `diary/2026-08-19.md`.
