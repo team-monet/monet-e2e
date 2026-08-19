@@ -8,7 +8,7 @@
 
 | Date | Source files | Lines covered | Total lines | Line coverage |
 |------|-------------|---------------|-------------|---------------|
-| 2026-08-19 | 50 (37 core + 13 cli) | 44,744 | 53,987 | 82.9% |
+| 2026-08-20 | 50 (37 core + 13 cli) | 44,991 | 53,987 | 83.3% |
 
 ## All modules (ascending coverage)
 
@@ -20,7 +20,6 @@
 | cli/project-dir.ts | 21.1% | 4 | 19 | cli |  |
 | cli/bootstrap.ts | 22.4% | 19 | 85 | cli |  |
 | cli/db/index.ts | 27.9% | 43 | 154 | cli |  |
-| core/conformance.ts | 33.1% | 169 | 510 | core |  |
 | core/source-materializer.ts | 37.4% | 892 | 2388 | core | yes |
 | cli/circle.ts | 37.8% | 176 | 466 | cli |  |
 | core/spans.ts | 39.8% | 78 | 196 | core |  |
@@ -46,6 +45,7 @@
 | core/source-scheduler.ts | 73.6% | 187 | 254 | core |  |
 | core/diagnostics.ts | 75.5% | 524 | 694 | core |  |
 | cli/install-cli.ts | 75.9% | 1098 | 1446 | cli |  |
+| core/conformance.ts | 81.6% | 416 | 510 | core |  |
 | core/source-errors.ts | 85.7% | 18 | 21 | core |  |
 | core/gate-journal.ts | 86.4% | 274 | 317 | core |  |
 | core/store-embedder.ts | 86.6% | 103 | 119 | core |  |
