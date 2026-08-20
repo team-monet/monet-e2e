@@ -8,7 +8,7 @@
 
 | Date | Source files | Lines covered | Total lines | Line coverage |
 |------|-------------|---------------|-------------|---------------|
-| 2026-08-20 | 50 (37 core + 13 cli) | 45,073 | 53,987 | 83.5% |
+| 2026-08-20 | 50 (37 core + 13 cli) | 45,126 | 53,987 | 83.6% |
 
 ## All modules (ascending coverage)
 
@@ -22,7 +22,6 @@
 | cli/db/index.ts | 27.9% | 43 | 154 | cli |  |
 | core/source-materializer.ts | 37.4% | 892 | 2388 | core | yes |
 | cli/circle.ts | 37.8% | 176 | 466 | cli |  |
-| core/skeleton-mirror.ts | 44.3% | 90 | 203 | core |  |
 | cli/cli.ts | 49.6% | 136 | 274 | cli |  |
 | core/source-safe-remove.ts | 51.8% | 190 | 367 | core | yes |
 | core/source-sync.ts | 52.0% | 835 | 1607 | core | yes |
@@ -40,6 +39,7 @@
 | core/lifecycle-edges.ts | 68.2% | 575 | 843 | core |  |
 | cli/materialize-cli.ts | 68.9% | 496 | 720 | cli |  |
 | core/script-gate.ts | 69.2% | 27 | 39 | core |  |
+| core/skeleton-mirror.ts | 70.4% | 143 | 203 | core |  |
 | core/observation-segmenter.ts | 70.9% | 127 | 179 | core |  |
 | core/source-scheduler.ts | 73.6% | 187 | 254 | core |  |
 | core/diagnostics.ts | 75.5% | 524 | 694 | core |  |

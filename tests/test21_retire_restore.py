@@ -55,6 +55,33 @@ def sql(query):
     return out.stdout.strip()
 
 
+def dismiss_dup_pairs(c, circle, cid):
+    """Find-21 recovery: retire REFUSES a concept that carries an UNDISMISSED
+    possible_duplicate_of pair flag ('erase rather than answer'). Storing
+    structurally-similar / token-sharing sentences intermittently auto-pairs
+    them (contradiction-processing.md §4a, line ~273), so defensively dismiss
+    any open possible_duplicate_of pair before retiring. memory_resolve with
+    conceptAId/conceptBId -> {action:'pair-flags-dismissed', rowsUpdated:2};
+    then retire proceeds. This makes ARM A/D/E/F robust to auto-pairing."""
+    rows = sql(
+        f"SELECT src_id, dst_id FROM memory_edge "
+        f"WHERE type='possible_duplicate_of' AND dismissed_at IS NULL "
+        f"AND (src_id='{cid}' OR dst_id='{cid}');")
+    partners = []
+    for line in rows.split("\n"):
+        if not line.strip():
+            continue
+        parts = line.split("|")
+        if len(parts) < 2:
+            continue
+        src, dst = parts[0], parts[1]
+        partner = dst if src == cid else src
+        partners.append(partner)
+    for p in partners:
+        c.call_json("memory_resolve", {"conceptAId": cid, "conceptBId": p, "circle": circle})
+    return partners
+
+
 def main():
     c = MonetClient(DATA)
     try:
@@ -75,6 +102,7 @@ def main():
         concepts0 = (ov0.get("counts") or {}).get("concepts", 0)
 
         # --- retire ---
+        dismiss_dup_pairs(c, CIRCLE, cid)
         rr = c.call_json("memory_retire", {"id": cid, "circle": CIRCLE})
         check("a_retire_ack", rr.get("action") == "retired" and rr.get("conceptId") == cid,
               f"action={rr.get('action')}")
@@ -170,6 +198,7 @@ def main():
               f"types={types_before}")
         max_reinf_before = max(int(x[2]) for x in before)
 
+        dismiss_dup_pairs(c, CIRCLE, a)
         rrA = c.call_json("memory_retire", {"id": a, "circle": CIRCLE})
         check("d_retire_ok", rrA.get("action") == "retired", f"action={rrA.get('action')}")
         after_retire = pair_edges(a, b)
@@ -221,6 +250,11 @@ def main():
         re2 = c.call_json("memory_retire", {"id": ce, "circle": CIRCLE})
         check("e_retire_after_dismiss", re2.get("action") == "retired",
               f"action={re2.get('action')} err={str(re2.get('_rawText', ''))[:80]}")
+        if re2.get("action") != "retired":
+            dismiss_dup_pairs(c, CIRCLE, ce)
+            re2 = c.call_json("memory_retire", {"id": ce, "circle": CIRCLE})
+            check("e_retire_after_pair_dismiss", re2.get("action") == "retired",
+                  f"action={re2.get('action')} err={str(re2.get('_rawText', ''))[:80]}")
         c.call_json("memory_restore", {"id": ce, "circle": CIRCLE})
 
         # ============ ARM F: declared principle refuses retire; ratify withdraws ============
@@ -243,6 +277,11 @@ def main():
         rf2 = c.call_json("memory_retire", {"id": did, "circle": CIRCLE})
         check("f_retire_after_ratify", rf2.get("action") == "retired",
               f"action={rf2.get('action')} err={str(rf2.get('_rawText', ''))[:80]}")
+        if rf2.get("action") != "retired":
+            dismiss_dup_pairs(c, CIRCLE, did)
+            rf2 = c.call_json("memory_retire", {"id": did, "circle": CIRCLE})
+            check("f_retire_after_pair_dismiss", rf2.get("action") == "retired",
+                  f"action={rf2.get('action')} err={str(rf2.get('_rawText', ''))[:80]}")
         c.call_json("memory_restore", {"id": did, "circle": CIRCLE})
 
         # ============ ARM H: wrong-circle retire refused ============
