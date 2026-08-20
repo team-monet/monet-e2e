@@ -8,7 +8,7 @@
 
 | Date | Source files | Lines covered | Total lines | Line coverage |
 |------|-------------|---------------|-------------|---------------|
-| 2026-08-20 | 50 (37 core + 13 cli) | 45,192 | 53,987 | 83.7% |
+| 2026-08-21 | 50 (37 core + 13 cli) | 45,254 | 53,987 | 83.8% |
 
 ## All modules (ascending coverage)
 
@@ -37,13 +37,13 @@
 | core/schema-version.ts | 66.7% | 2 | 3 | core |  |
 | core/lifecycle-edges.ts | 68.2% | 575 | 843 | core |  |
 | core/script-gate.ts | 69.2% | 27 | 39 | core |  |
-| cli/materialize-cli.ts | 69.4% | 500 | 720 | cli |  |
 | cli/cli.ts | 69.7% | 191 | 274 | cli |  |
 | core/skeleton-mirror.ts | 70.4% | 143 | 203 | core |  |
 | core/observation-segmenter.ts | 70.9% | 127 | 179 | core |  |
 | core/source-scheduler.ts | 73.6% | 187 | 254 | core |  |
 | core/diagnostics.ts | 75.5% | 524 | 694 | core |  |
 | cli/install-cli.ts | 75.9% | 1098 | 1446 | cli |  |
+| cli/materialize-cli.ts | 78.1% | 562 | 720 | cli |  |
 | core/conformance.ts | 81.6% | 416 | 510 | core |  |
 | core/spans.ts | 81.6% | 160 | 196 | core |  |
 | core/source-errors.ts | 85.7% | 18 | 21 | core |  |
