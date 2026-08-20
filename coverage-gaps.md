@@ -8,7 +8,7 @@
 
 | Date | Source files | Lines covered | Total lines | Line coverage |
 |------|-------------|---------------|-------------|---------------|
-| 2026-08-20 | 50 (37 core + 13 cli) | 45,126 | 53,987 | 83.6% |
+| 2026-08-20 | 50 (37 core + 13 cli) | 45,192 | 53,987 | 83.7% |
 
 ## All modules (ascending coverage)
 
@@ -18,11 +18,10 @@
 | core/source-chunker.ts | 5.7% | 47 | 829 | core | yes |
 | core/render-overview.ts | 6.9% | 10 | 145 | core |  |
 | cli/project-dir.ts | 21.1% | 4 | 19 | cli |  |
-| cli/bootstrap.ts | 22.4% | 19 | 85 | cli |  |
+| cli/bootstrap.ts | 25.9% | 22 | 85 | cli |  |
 | cli/db/index.ts | 27.9% | 43 | 154 | cli |  |
 | core/source-materializer.ts | 37.4% | 892 | 2388 | core | yes |
 | cli/circle.ts | 37.8% | 176 | 466 | cli |  |
-| cli/cli.ts | 49.6% | 136 | 274 | cli |  |
 | core/source-safe-remove.ts | 51.8% | 190 | 367 | core | yes |
 | core/source-sync.ts | 52.0% | 835 | 1607 | core | yes |
 | core/retrieval.ts | 52.5% | 202 | 385 | core |  |
@@ -32,13 +31,14 @@
 | cli/config-cli.ts | 59.6% | 56 | 94 | cli |  |
 | core/embed-budget.ts | 63.3% | 31 | 49 | core |  |
 | core/statement-trace.ts | 63.5% | 212 | 334 | core |  |
-| cli/source-cli.ts | 64.2% | 425 | 662 | cli |  |
 | core/resolution.ts | 64.5% | 218 | 338 | core |  |
+| cli/source-cli.ts | 64.8% | 429 | 662 | cli |  |
 | core/source-scanner.ts | 66.3% | 548 | 826 | core |  |
 | core/schema-version.ts | 66.7% | 2 | 3 | core |  |
 | core/lifecycle-edges.ts | 68.2% | 575 | 843 | core |  |
-| cli/materialize-cli.ts | 68.9% | 496 | 720 | cli |  |
 | core/script-gate.ts | 69.2% | 27 | 39 | core |  |
+| cli/materialize-cli.ts | 69.4% | 500 | 720 | cli |  |
+| cli/cli.ts | 69.7% | 191 | 274 | cli |  |
 | core/skeleton-mirror.ts | 70.4% | 143 | 203 | core |  |
 | core/observation-segmenter.ts | 70.9% | 127 | 179 | core |  |
 | core/source-scheduler.ts | 73.6% | 187 | 254 | core |  |
