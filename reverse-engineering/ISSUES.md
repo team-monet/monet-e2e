@@ -36,7 +36,7 @@ still-open bug and flips to `XPASS` when fixed); `—` = not yet E2E-verified.
 | RE-02 | Attach requires obsScore≥tauAttach AND centroidScore≥tauAmbiguous → a drifted centroid repels valid attaches into fork-signal | dedup-resolution.md | by-design | — | S4 |
 | RE-03 | Resolution core fully duplicated between dist/index.js and dist/cli.js bundles (V1/sT vs xH/IN); patches must touch both | dedup-resolution.md | source | — | S3 |
 | RE-04 | Lexical rank arm is Latin-script-only (`/[a-z0-9][a-z0-9_-]{2,}/`) → Korean/Japanese queries get zero lexical contribution | search-pipeline.md | confirmed | test30 | S3 |
-| RE-05 | Source concepts skip nativeScoreFloor (any score>0 enters) while native concepts below floor are dropped — intentional? | search-pipeline.md | open | — | S4 |
+| RE-05 | Source concepts skip nativeScoreFloor (any score>0 enters) while native concepts below floor are dropped — intentional? **[removed 2026-08-22: source subsystem hard-removed in 1.7.0 → cannot manifest; guardrail test26 SKIP]** | search-pipeline.md | removed | test26 (SKIP) | S4 |
 | RE-06 | Search is O(eligible segments) brute-force scan, no ANN index; cost grows linearly with store size | search-pipeline.md | by-design | — | S4 |
 | RE-07 | `limit` truncation is silent — no flag tells the caller more matches existed | search-pipeline.md | confirmed | test22 | S3 |
 | RE-08 | Migration steps run outside one transaction (version is a milestone, not a ledger); half-migrated state reports old version | schema-migration.md | by-design | — | S4 |
@@ -56,7 +56,7 @@ still-open bug and flips to `XPASS` when fixed); `—` = not yet E2E-verified.
 | RE-22 | Dashboard is local-only, read-only, Host-allowlisted — positive security posture, no remote-monitoring path | dashboard.md | by-design | — | S4 |
 | RE-23 | `monet start` derives a fallback identity (`local-agent` / `<basename>-<sha8>`) when MONET_CALLER_ID/MONET_PROJECT_ID are unset, so `source_list` silently returns `[]` and `source_status`/`source_path`/`source_sync` return the non-disclosing "source is unavailable" — the identity mismatch is NOT discoverable (a caller sees a clean "no sources" state) | sources-sync.md | removed | test26 (SKIP) | S3 |
 | RE-24 | updateSource lets `access` be mutated, silently de-authorizing the host that registered/syncs the source | sources-sync.md | removed | test28 (SKIP) | S2 |
-| RE-25 | MCP source_sync is synchronous/blocking (awaits full clone→chunk→hash→embed→publish→verify); can exceed MCP timeouts | sources-sync.md | by-design | — | S4 |
+| RE-25 | MCP source_sync is synchronous/blocking (awaits full clone→chunk→hash→embed→publish→verify); can exceed MCP timeouts **[removed 2026-08-22: source subsystem hard-removed in 1.7.0 → tool no longer exists; guardrail test25 SKIP]** | sources-sync.md | removed | test25 (SKIP) | S4 |
 | RE-26 | Gate instrumentation has NO retention/pruning: in ≤1.6.x `gate_events` grew unbounded (2–3 orders > `resolution_events`); 1.7.0 moved recording to the store-backed `governed_moments` table, which likewise has no auto-cap/prune surface — the unbounded-growth contract is unchanged | gates.md | confirmed | test29 | S2 |
 | RE-27 | Conformance "cheap half" can only emit `changed` for blocking denies; advisory fires stay `unavailable` → advisory rules un-retirable until judgment half ships. **reassessment in progress (#25) w/ test50 E2E evidence (2026-08-22):** the judgment half SHIPPED in 1.7.0/1.7.1 as MCP `conformance_ask`/`conformance_answer` — it records a per-moment `followed`/`not-followed` verdict into `governed_moments` (tallied by `momentConformance`), but exposes NO rule-retirement / advisory-dismissal surface (the only conformance tools are ask+answer; both ATTACH a verdict, never retire a rule). So advisory rules still have no retirement path from this mechanism — unless retirement moves to a later layer (per the moment ledger the verdict is about the act, not the rule) | gates.md | by-design | — | S4 |
 | RE-28 | gate_events.action_context stores raw intercepted commands verbatim (paths/hostnames/flags) — most privacy-sensitive column; local-only + scrub-covered | gates.md | by-design | — | S3 |
@@ -356,3 +356,20 @@ still-open bug and flips to `XPASS` when fixed); `—` = not yet E2E-verified.
   cross-check vs `main` and the installed 1.6.3 binary both reproduce
   identically (mcp-server.ts:146-150 `clip()`, 1597-1625 handler uses only
   `.text` and discards `.clipped`). Detail in `diary/2026-08-19.md`.
+- **Source subsystem hard-removal reclassification (2026-08-22, run 63):** run 60
+  verified the open-source 1.7.0 release irreversibly removed the source
+  subsystem — the CLI `source` command, the four `source_*` MCP tools
+  (`source_list`/`source_status`/`source_path`/`source_sync`), and the dashboard
+  `/api/sources` route are all gone (MCP 23→21, −4 source_* / +2
+  `conformance_ask·answer`), and the schema bump 12→13 retired the source-backed
+  tables. Per the `removed` status (obsolete-by-removal; XFAIL now SKIPs), this
+  run reclassified the two remaining non-`removed` source-subsystem issues:
+  **RE-05** (`open` → `removed`, guardrail test26 SKIP) and **RE-25** (`by-design`
+  → `removed`, guardrail test25 SKIP). The three source E2E tests
+  (test25/26/28) stay as regression guardrails (supervisor deliberately kept them
+  SKIP, NOT XFAIL). This completes the post-1.7.0 source cleanup: RE-05/23/24/25/
+  29/30 are now all `removed`, and no source-subsystem issue remains active in the
+  registry. **RE-27** (conformance judgment half) is separately resolved
+  (by-design, reassessed in run 62 with test50 E2E evidence) — it is a gates.md
+  issue, not a source-subsystem one, so it is untouched here. Detail in
+  `diary/2026-08-22.md`.

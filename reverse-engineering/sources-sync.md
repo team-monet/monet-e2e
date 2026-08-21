@@ -10,13 +10,16 @@
 > Companion (source-level only, E2E-unverified): the E2E store has **no**
 > `knowledge_sources` table, so none of this is exercised by the harness yet.
 
-> ## ⚠️ PROVISIONALLY RETIRED (2026-08-16)
-> The source subsystem is **provisionally retired** per the author's commit
+> ## ⚠️ HARD-REMOVED (1.7.0, 2026-08)
+> The source subsystem was **provisionally retired** per the author's commit
 > (team-monet/monet `eafaf3c`, John Lee, 2026-08-15, v1.6.3 — "Stop documenting
-> the provisionally retired source subsystem"). Docs withdrawn (~90 lines of the
-> npm README); the commands and MCP tools are **untouched and still work**.
-> This entire module (and RE-23..25, RE-29, RE-30) is on a deprecation path —
-> fix only if sources are revived.
+> the provisionally retired source subsystem"), and was **irreversibly removed
+> in the 1.7.0 release**: the CLI `source` command, the four `source_*` MCP
+> tools (`source_list`/`source_status`/`source_path`/`source_sync`), and the
+> dashboard `/api/sources` route are all gone (MCP 23→21), and the schema bump
+> 12→13 retired the source-backed tables. **All of RE-23..25, RE-29, RE-30 are
+> `removed`** (obsolete-by-removal; the test25/26/28 guardrails now SKIP).
+> Restore only if the subsystem revives.
 
 ## 1. Component map
 
@@ -260,12 +263,14 @@ run `runResult`/`lastResult`, else `never`.
   source …`) with no warning, the `allowed_caller_ids_json` column now excludes
   the acting caller, and the acting caller's MCP `source_list` returns `[]` —
   the self-de-authorization is completely silent.
-- **RE-25 (latency, design)** — MCP `source_sync` is synchronous/blocking: it
+- **RE-25 (latency, design → REMOVED 2026-08-22)** — MCP `source_sync` is synchronous/blocking: it
   awaits the full `Jd` pipeline (clone/pull → walk → chunk → hash → embed →
   publish → verify). A cold `git-md` sync of a large repo can exceed MCP
   client timeouts; there is no async job-id / streaming return. The scheduler
   path (`syncScheduledSource`) is the intended long-run lane, but a user
-  invoking `source_sync` directly gets the blocking path.
+  invoking `source_sync` directly gets the blocking path. **Obsolete-by-removal:
+  the `source_sync` tool (all of `source_*`) was hard-removed in 1.7.0 —
+  status `removed`, guardrail test25 SKIP.**
 - **RE-29 (isolation footgun, S2, E2E-confirmed 2026-08-14):** the source
   storage dir is NOT scoped by `-d`. `SourceRegistry` sets `sourceStorageDir =
   resolve(homedir(), ".monet", "sources")` (source-registry.ts:404-405) when

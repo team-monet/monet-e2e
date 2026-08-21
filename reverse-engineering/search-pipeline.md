@@ -213,10 +213,11 @@ and the alternatives", etc.).
   MiniLM) pass the Latin-script guard for storage/search but their search
   ordering gets zero lexical contribution for non-Latin queries. English
   benefits from both arms; Korean/Japanese rely purely on embeddings. **E2E-CONFIRMED (2026-08-15, test30):** Korean content stores ZERO `observation_tokens` rows (the Latin-only `lexicalTokens` drops Hangul at write time) vs 10 tokens for the English equivalent; Korean SEMANTIC retrieval still works (bge-m3), so the gap is purely lexical. XFAIL.
-- **RE-05 (design nuance):** source concepts skip `nativeScoreFloor` — a source
+- **RE-05 (design nuance, REMOVED 2026-08-22):** source concepts skip `nativeScoreFloor` — a source
   projection with tiny cosine (any score > 0) still enters results while a
-  native concept below floor is dropped. Unclear if intentional (sources are
-  already ACL-gated); worth confirming with the team.
+  native concept below floor is dropped. Obsolete-by-removal: the source
+  subsystem was hard-removed in 1.7.0, so this contrast can no longer
+  manifest. Guardrail test26 SKIPs on 1.7.0+.
 - **RE-06 (performance note):** search is an O(eligible segments) brute-force
   scan per query — every segment embedding in scope is deserialized and dotted
   with the query (no ANN index, no pre-filter beyond SQL kind/status/circle).
