@@ -28,7 +28,7 @@ Only modules with **no** upstream test are genuine additive targets.
 | cli/gate-cli.ts | 55.0% | 1228 | gate-cli.test.ts | false lead |
 | core/circle.ts | 55.9% | 34 | core circle.test.ts | false lead |
 | cli/config-cli.ts | 59.6% | 94 | config-cli.test.ts | false lead |
-| core/embed-budget.ts | 63.3% | 49 | **no** | genuine — small |
+| core/embed-budget.ts | 63.3% | 49 | partial: RELIABLE_EMBED_TOKENS referenced in 3 upstream tests + declaration-validation via segmentTokenBudget (segment-budget-travel.test.ts) | false lead (run 60) |
 | core/statement-trace.ts | 63.5% | 334 | statement-trace.test.ts | false lead |
 | core/resolution.ts | 64.5% | 338 | **no** (no symbol in any core test) | **genuine — the dedup engine** |
 | cli/source-cli.ts | 64.8% | 662 | source-cli.test.ts | false lead (+source) |
@@ -37,15 +37,15 @@ Deprecated source-* modules (source-git 1086L, source-chunker 829L,
 source-materializer 2388L, source-safe-remove 367L, source-sync 1607L) are all
 excluded by the deprecation path (eafaf3c).
 
-## Genuine (non-upstream-tested) additive targets — only three
+## Genuine (non-upstream-tested) additive targets — all dispositioned
 
-1. **core/resolution.ts (338L)** — the dedup/resolution engine
-   (`resolutionCandidates`/`rankByCentroid`/`nominateByObservation`); pure
-   functions, driver-friendly, not referenced by any upstream test file. The one
-   honest large lift — but it duplicates RE-documented dedup behavior
-   (`dedup-resolution.md`), so a driver verifies rather than discovers.
-2. **core/embed-budget.ts (49L)** — segment budget computation; small, pure.
-3. **cli/project-dir.ts (19L)** — trivial.
+1. **core/resolution.ts (338L)** — the dedup/resolution engine. **DONE run 59**
+   (test49): pure-driver added, but on the memory_store hot path so no % lift.
+   Kept as durable functional regression.
+2. **core/embed-budget.ts (49L)** — declaration-validation is exercised
+   upstream via `segmentTokenBudget` (segment-budget-travel.test.ts); NOT a
+   genuine target (run 60).
+3. **cli/project-dir.ts (19L)** — trivial (~4 executable; line-maxed shim).
 
 ## Implication
 
