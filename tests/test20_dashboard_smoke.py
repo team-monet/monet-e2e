@@ -127,10 +127,12 @@ def start_dashboard(data_dir, port, log_path):
 
 
 def wait_ready(port, timeout=30):
+    # Probe /api/graph (served on both 1.6.x and 1.7.x). Do NOT probe /api/sources:
+    # the sources subsystem was retired in 1.7.0 and that endpoint now 404s.
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
-            st, _, _ = raw_request(port, "/api/sources", host=f"localhost:{port}")
+            st, _, _ = raw_request(port, "/api/graph", host=f"localhost:{port}")
             if st == 200:
                 return True
         except (OSError, ValueError):
@@ -165,7 +167,7 @@ def main():
         check("a_graph_generated_at", isinstance(g.get("generatedAt"), (int, float)),
               f"generatedAt={g.get('generatedAt')}")
         counts = g.get("counts", {})
-        zero_keys = ["concepts", "sourceConcepts", "observations", "edgesLive",
+        zero_keys = ["concepts", "observations", "edgesLive",
                      "edgesDismissed", "entities", "sessions", "contradictionsOpen",
                      "contradictionsResolved", "disputed", "dirty", "possibleDuplicatePairs"]
         check("a_counts_keys_present", set(zero_keys) <= set(counts.keys()),
@@ -189,9 +191,14 @@ def main():
               f"entities={e}")
 
         st, hd, body = raw_request(port, "/api/sources", host=f"localhost:{port}")
-        so = json.loads(body.decode())
-        check("a_sources_empty", st == 200 and so.get("sources") == [] and "generatedAt" in so,
-              f"sources={so}")
+        # Sources subsystem retired in 1.7.0 -> /api/sources 404s there, but served
+        # an empty shape on 1.6.x. Accept either (version-tolerant).
+        if st == 200:
+            so = json.loads(body.decode())
+            check("a_sources_legacy_empty", so.get("sources") == [] and "generatedAt" in so,
+                  f"sources={so}")
+        else:
+            check("a_sources_removed_404", st == 404, f"status={st} (sources retired in 1.7.0)")
 
         st, hd, body = raw_request(port, "/", host=f"localhost:{port}")
         check("a_root_200_html", st == 200 and "text/html" in hd.get("content-type", ""),

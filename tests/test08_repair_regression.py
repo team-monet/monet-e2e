@@ -38,7 +38,7 @@ def run_cli(args):
 def main():
     out = run_cli(["doctor", "-d", DATA, "--check-provider"])
     check("assessment_safe", "Assessment: safe" in out, out.split("Assessment:")[1][:40] if "Assessment:" in out else "?")
-    check("schema_12", "Schema:     12 (supported: 12)" in out or "Schema: 12 (supported: 12)" in out)
+    check("schema_13", "Schema:     13 (supported: 13)" in out or "Schema: 13 (supported: 13)" in out)
     check("integrity_ok", "Integrity:  ok" in out)
     check("pin_multilingual", "Xenova/paraphrase-multilingual-MiniLM-L12-v2" in out and "source: migrated" in out,
           [l for l in out.splitlines() if l.startswith("Pin")][:1])

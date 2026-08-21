@@ -57,7 +57,7 @@ def main():
 
     # 1. new doctor detects old schema
     out1 = run_cli(["doctor", "-d", SCRATCH, "--check-provider"])
-    check("detect_schema4", "4 (supported: 12)" in out1,
+    check("detect_schema4", "4 (supported: 13)" in out1,
           [l.strip() for l in out1.splitlines() if l.strip().startswith("Schema")][:1])
     check("detect_unknown", "Assessment: unknown" in out1)
 
@@ -69,7 +69,7 @@ def main():
         check("server_init_after_open", init.get("serverInfo", {}).get("name") is not None,
               init.get("serverInfo", {}))
         # post-migration store/search works
-        r = c.call_json("memory_store", {"content": f"Post-migration observation {TOKEN}: schema now twelve.", "circle": CIRCLE, "sourceRefs": SRC})
+        r = c.call_json("memory_store", {"content": f"Post-migration observation {TOKEN}: schema now thirteen.", "circle": CIRCLE, "sourceRefs": SRC})
         new_id = r.get("conceptId")
         check("store_post_migration", bool(new_id), f"id={new_id}")
         # old observation preserved (search by phrase from fixture content)
@@ -83,7 +83,7 @@ def main():
 
     # 3. doctor after migration
     out2 = run_cli(["doctor", "-d", SCRATCH, "--check-provider"])
-    check("schema_now_12", "12 (supported: 12)" in out2,
+    check("schema_now_13", "13 (supported: 13)" in out2,
           [l.strip() for l in out2.splitlines() if l.strip().startswith("Schema")][:1])
     check("integrity_ok", "Integrity:  ok" in out2)
     check("pin_set_after_migration", "Pin:" in out2 and "unknown" not in out2.split("Pin:")[1][:20],

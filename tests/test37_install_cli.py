@@ -116,7 +116,11 @@ def main():
             if hs:
                 check(f"A_handler_{m}_args", hs[0].get("args") == [wrapper, "--circle", "e2e-circle"],
                       str(hs[0].get("args")))
-        check("A_coverage_report", "WIRED" in out and "NOT WIRED" in out)
+        # 1.7.0 reworded the coverage report: the ungoverned space is now split
+        # into "UNGOVERNED BY CHOICE"/"UNGOVERNED BY NATURE"/"NOT ENFORCEABLE"
+        # sections instead of a single "NOT WIRED" token. Accept the old and new.
+        check("A_coverage_report",
+              "WIRED" in out and ("NOT WIRED" in out or "NOT ENFORCEABLE" in out or "UNGOVERNED" in out))
         check("A_stderr_wrote", "monet install: wrote" in err, err.strip())
         check("A_stderr_circle_pin", "pinned --circle e2e-circle" in err)
 
@@ -187,7 +191,8 @@ def main():
               not os.path.exists(wrapper) and not os.path.exists(settings_path),
               f"wrapper={os.path.exists(wrapper)} settings={os.path.exists(settings_path)}")
         check("D_stdout_would_write", "would be written" in out)
-        check("D_stdout_report", "NOT WIRED" in out)
+        check("D_stdout_report",
+              "NOT WIRED" in out or "NOT ENFORCEABLE" in out or "UNGOVERNED" in out)
         check("D_stderr_dry_run", "--dry-run" in err, err.strip())
 
     # E. refusal: --project <nonexistent>

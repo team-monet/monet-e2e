@@ -16,7 +16,9 @@ EXPECTED = {
     "memory_overview", "memory_ratify", "memory_reassign_circle", "memory_resolve",
     "memory_restore", "memory_retire", "memory_search", "memory_store",
     "memory_synthesize", "memory_workstreams",
-    "source_list", "source_path", "source_status", "source_sync", "stage_lookup",
+    "stage_lookup",
+    # New in 1.7.0: the conformance MCP surface (upstream #28, previously unwired).
+    "conformance_answer", "conformance_ask",
 }
 
 PASS = []
@@ -42,8 +44,10 @@ def main():
         names = {t["name"] for t in tools.get("tools", [])}
         # Tool surface: EXPECTED must be a subset of the live set AND the live
         # set must not have grown beyond EXPECTED. 21 -> 23 when the 1.6.1
-        # retire/restore tools landed; the count assertion keeps the two sets
-        # in lockstep so any future tool addition fails loudly here.
+        # retire/restore tools landed; 23 -> 21 in 1.7.0 when the four source_*
+        # tools were removed (sources retired) and the two conformance_* tools
+        # were added. The count assertion keeps the two sets in lockstep so any
+        # future tool addition/removal fails loudly here.
         check("tool_count_matches_expected", len(names) == len(EXPECTED), f"n={len(names)} expected={len(EXPECTED)}")
         missing = EXPECTED - names
         check("expected_tools_present", not missing, f"missing={missing or 'none'}")

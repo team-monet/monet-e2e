@@ -12,6 +12,13 @@ run-*/
 fixtures/
 prefix-old/
 
+# Version-isolated test prefixes (npm install --prefix under MONET_TEST_DIR)
+prefix-*/
+
+# 1.7.0+ governed-moment spool written by the gate/conformance path to cwd
+moments.jsonl
+gate-journal.jsonl
+
 # Local debug/probe scripts (not part of the public suite)
 debug_*.py
 dump_*.py

@@ -1,21 +1,27 @@
 #!/usr/bin/env python3
-"""RE-26 (gates.md): gate_events has NO retention/pruning.
+"""RE-26 (gates.md): gate instrumentation has NO retention/pruning.
 
-Reverse-engineering finding (v0.9.0 readable TS): `gate_events` records one
+Reverse-engineering finding (v0.9.0 readable TS): `gate_events` recorded one
 row per intercepted action — including silences — from BOTH matchers
-(`mechanical` = gateQuery, `recognized` = stage_lookup). The source comment is
+(`mechanical` = gateQuery, `recognized` = stage_lookup). The source comment was
 explicit that "on a busy store it will become the largest one" (2–3 orders of
 magnitude more rows than `resolution_events`; it grows with agent activity,
-not memory volume). Retention is deferred, with `SOURCE_ATTEMPT_EVENT_RETENTION`
+not memory volume). Retention was deferred, with `SOURCE_ATTEMPT_EVENT_RETENTION`
 (128 immutable receipts/source) named as the precedent to copy.
 
-This test documents the DESIRED contract: gate_events has a retention/pruning
-mechanism — either a CLI/doctor/MCP surface that reports and prunes it, or an
-automatic cap — so a busy store does not accumulate unbounded instrumentation.
+In 1.7.0 the gate-instrumentation redesign replaced `gate_events` with the
+store-backed `governed_moments` table (a moment opens for every intercepted
+action, incl. silences, and closes with an outcome at PostToolUse). The retention
+question is UNCHANGED — governed_moments has no auto-cap/prune surface either.
+
+This test documents the DESIRED contract: gate instrumentation has a
+retention/pruning mechanism — either a CLI/doctor/MCP surface that reports and
+prunes it, or an automatic cap — so a busy store does not accumulate unbounded
+instrumentation.
 
 Exit codes:
   0/1 = normal pass/fail (setup broke -> the test itself is wrong)
-  2   = XFAIL: gate_events still accumulates unboundedly with no prune surface
+  2   = XFAIL: governed_moments still accumulates unboundedly with no prune surface
   3   = XPASS: a retention/prune surface exists, or events are auto-capped
 """
 import os
@@ -102,10 +108,14 @@ def main():
         finally:
             c.close()
 
-        # Cross-check: gate_events accumulated one row per lookup (no auto-cap).
-        cnt = int(sql(db, "SELECT COUNT(*) FROM gate_events;") or "0")
-        # 1 hit + N_FIRES lookups each write a gate_events row (recognized matcher).
-        check("gate_events_accumulated", cnt >= N_FIRES, f"count={cnt} (fired {N_FIRES}+1)")
+        # Cross-check: governed_moments accumulated one row per lookup (no auto-cap).
+        # 1.7.0 moved gate recording from the removed `gate_events` table into the
+        # store-backed `governed_moments` table (the gate-instrumentation redesign;
+        # the offline file-journal + claimType machinery was dropped in the same
+        # release — see test39). RE-26's retention question is unchanged in spirit:
+        # does governed_moments still grow unboundedly with no prune surface?
+        cnt = int(sql(db, "SELECT COUNT(*) FROM governed_moments;") or "0")
+        check("governed_moments_accumulated", cnt >= N_FIRES, f"count={cnt} (fired {N_FIRES}+1)")
 
         # ---- DESIRED contract: a retention/prune surface exists ----
         # Enumerate the CLI + MCP surfaces that could read/prune gate_events.
@@ -127,13 +137,13 @@ def main():
             c2.close()
 
         import re
-        retention_pat = re.compile(r"prun|retain|retention|trim|gate[-_]event", re.IGNORECASE)
+        retention_pat = re.compile(r"prun|retain|retention|trim|gate[-_]event|governed[-_]moment|moment", re.IGNORECASE)
         cli_surface = any(retention_pat.search(v) for v in surfaces.values())
-        # None of the 23 MCP tools are named for gate events.
+        # None of the MCP tools are named for gate events / governed moments.
         mcp_surface = any(retention_pat.search(t) for t in tools)
         retention_surface_exists = cli_surface or mcp_surface
-        print(f"  [RE-26] gate_events_count={cnt} cli_surface={cli_surface} "
-              f"mcp_surface={mcp_surface} tools_with_gate={[t for t in sorted(tools) if 'gate' in t.lower()]}")
+        print(f"  [RE-26] governed_moments_count={cnt} cli_surface={cli_surface} "
+              f"mcp_surface={mcp_surface} tools_with_gate={[t for t in sorted(tools) if 'gate' in t.lower() or 'moment' in t.lower()]}")
 
         # DESIRED: either a prune/retention surface, or an automatic cap.
         auto_capped = cnt < N_FIRES
@@ -149,7 +159,7 @@ def main():
     if bug_fixed:
         print(f"\nRESULT: XPASS {ISSUE} — a retention/prune surface or auto-cap exists (bug appears fixed)")
         return 3
-    print(f"\nRESULT: XFAIL {ISSUE} — gate_events grows unboundedly with no retention/prune surface "
+    print(f"\nRESULT: XFAIL {ISSUE} — governed_moments grows unboundedly with no retention/prune surface "
           f"({len(PASS)} setup checks passed)")
     return 2
 

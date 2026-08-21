@@ -82,6 +82,18 @@ def env_for(home):
 
 
 def main():
+    # The sources subsystem was REMOVED in @team-monet/monet 1.7.0 (the `source`
+    # CLI subcommand and all MCP source_* tools are gone). The RE-29/RE-30 bugs
+    # this test verifies are now obsolete-by-removal, so when the binary has no
+    # `source` subcommand we SKIP (exit 0) instead of failing setup.
+    import subprocess as _sp
+    _p = _sp.run([CLI, "source"], capture_output=True, text=True, env=env_for(os.path.expanduser("~")))
+    if _p.returncode == 1 and "unknown command" in (_p.stderr or ""):
+        print("  SKIP: the `source` CLI subcommand was removed in 1.7.0 " +
+              "(sources subsystem retired) — RE-29/RE-30 obsolete-by-removal.")
+        print("\nRESULT: 0 passed, 0 failed (SKIP)")
+        return 0
+
     base = tempfile.mkdtemp(prefix="monet-src-e2e-")
     repo = os.path.join(base, "repo")
     store = os.path.join(base, "store")

@@ -88,6 +88,16 @@ def env_for(home):
 
 
 def main():
+    # Sources subsystem removed in @team-monet/monet 1.7.0 (`source` subcommand +
+    # MCP source_* tools gone) -> RE-23 obsolete-by-removal; SKIP instead of failing.
+    import subprocess as _sp
+    _p = _sp.run([CLI, "source"], capture_output=True, text=True, env=env_for(os.path.expanduser("~")))
+    if _p.returncode == 1 and "unknown command" in (_p.stderr or ""):
+        print("  SKIP: the `source` CLI subcommand was removed in 1.7.0 " +
+              "(sources subsystem retired) — RE-23 obsolete-by-removal.")
+        print("\nRESULT: 0 passed, 0 failed (SKIP)")
+        return 0
+
     base = tempfile.mkdtemp(prefix="monet-re23-e2e-")
     repo = os.path.join(base, "repo")
     store = os.path.join(base, "store")

@@ -123,10 +123,12 @@ def start_dashboard(data_dir, port, log_path):
 
 
 def wait_ready(port, timeout=30):
+    # Probe /api/graph (served on both 1.6.x and 1.7.x). Do NOT probe /api/sources:
+    # the sources subsystem was retired in 1.7.0 and that endpoint now 404s.
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
-            st, _, _ = raw_request(port, "/api/sources", host=f"localhost:{port}")
+            st, _, _ = raw_request(port, "/api/graph", host=f"localhost:{port}")
             if st == 200:
                 return True
         except (OSError, ValueError):

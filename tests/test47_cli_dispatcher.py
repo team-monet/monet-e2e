@@ -94,12 +94,13 @@ def main():
             check(f"F_dashboard_invalid_{bad}", rc == 1 and "Invalid port" in err,
                   f"rc={rc} err={err.strip()[:80]}")
 
-    # G. SourceCliError branch
+    # G. source command removed in 1.7.0 (sources subsystem retired) -> `source` is
+    #    no longer a recognized subcommand; the dispatcher reports unknown command.
     with tempfile.TemporaryDirectory() as td:
         env = set_home(td)
         env["MONET_STORAGE_DIR"] = os.path.join(td, "store")
         rc, out, err = run_cli(["source", "add", "--type", "git-md", "x"], env_extra=env)
-        check("G_sourceclierror_branch", rc == 1 and err.strip().startswith("monet source:"),
+        check("G_source_removed_unknown_cmd", rc == 1 and "unknown command 'source'" in err,
               f"rc={rc} err={err.strip()[:100]}")
 
     # H. MaterializeCliError branch (duplicate surface registration)
