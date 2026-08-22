@@ -24,7 +24,7 @@ moot; fix them ONLY if sources are revived. The three source E2E tests
 (test25/26/28) remain in the suite as regression guardrails while the tools
 still ship, but their XFAILs no longer imply an urgent fix.
 
-## Active fix queue — 12 confirmed bugs (non-deprecated)
+## Active fix queue — 14 confirmed bugs (non-deprecated)
 
 ### S2 (scalability / operability / security — will bite in production)
 
@@ -35,6 +35,7 @@ still ship, but their XFAILs no longer imply an urgent fix.
 | RE-44 | test34 | `monet materialize` renders an unsynthesized (dirty) skeleton concept's concatenated body as governing text — no `dirty`/`needsSynthesis` guard; silent wrong governing text on the always-on surface. |
 | RE-45 | test36 | `busy_timeout=5000` starved by concurrent write bursts; `memory_fetch` is a hidden writer — the unprotected usefulness-bump UPDATE (and optional inline synthesize) fail the whole fetch under contention, so a pure read returns `database is locked`. |
 | RE-47 | test38 | `correction-attach` exemption (resolution.ts:261-277) attaches a `kind="correction"` in the ambiguous band (sub-tauAttach) to the evidence-nominated concept and disputes it — intent disambiguates WHAT a correction asserts, not WHICH concept a weak (0.55–0.70) cosine points at. A wrong correction is absorbed AND marks an innocent concept `disputed`. **Fix is a product decision** (fork instead of attach, or raise the correction floor — upstream #52 "suggested directions" #2/#3). |
+| RE-51 | test54 | `memory_checkpoint` writes (workstream `saveWorkstream` / find `captureFind`) into an ARCHIVED circle with NO disclosure — neither path consults `isArchivedCircle` (the storeInternal guard from PR #78 / RE-17 is the only archived check), and the receipt names the landing circle with no `guidance`/`archived` clause → a checkpointed row sits OUTSIDE store-wide recall invisibly. Write is correct; missing disclosure is the bug (upstream #81, sev:major). Sibling of RE-17 on the checkpoint/save path. Fix = add the archived disclosure/refusal to both save+capture. |
 
 ### S3 (missing signal / UX / maintenance risk)
 
@@ -45,6 +46,7 @@ still ship, but their XFAILs no longer imply an urgent fix.
 | RE-04 | test30 | Lexical rank arm is Latin-script-only — Korean/Japanese queries (and stored content) get zero lexical contribution. |
 | RE-33 | test31 | `slow-queries.jsonl` is write-only — no doctor/CLI/MCP surface reads it. |
 | RE-48 | test38 | `memory_store` ack omits the attach target's title/slug — the MCP envelope drops the `concept.slug`/`title` the engine already computes, so a mis-merge is invisible without a separate `memory_fetch`. Trivial fix (thread slug/title into the envelope on an attach/ambiguous resolution). |
+| RE-52 | test55 | `monet install` CRASHES (unhandled JS TypeError) instead of refusing cleanly on a malformed `hooks.PostToolUse*` section — `validateSettingsShape` (install-cli.ts:1019) validates ONLY `PreToolUse` and early-returns `{ok:true}` when it is absent, so PostToolUse values skip shape-validation and reach `upsertHandlerForEvent`, whose `group.hooks.filter(...)` throws (`i.filter is not a function` / `(t ?? []) is not iterable`). Desired: refuse cleanly like the wrong-shape PreToolUse arms (test37 F/G). Fix = extend shape-validation to PostToolUse*. |
 
 ### S4 (cosmetic / by-design note)
 
@@ -95,7 +97,7 @@ still ship, but their XFAILs no longer imply an urgent fix.
 
 ## Notes
 
-- Active queue = 12 confirmed (E2E XFAIL), 0 speculative. Structural issues
+- Active queue = 14 confirmed (E2E XFAIL), 0 speculative. Structural issues
   (`source` status, e.g. RE-42 S1 repair `--target`) are deliberately excluded
   here — they route to code-fix separately but are not E2E-observable.
 - Deprecation path = 5 source-subsystem issues, deferred until sources are

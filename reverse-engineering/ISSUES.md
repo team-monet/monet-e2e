@@ -270,6 +270,21 @@ still-open bug and flips to `XPASS` when fixed); `—` = not yet E2E-verified.
     XFAIL. Routes to the code-fix queue, not the E2E verifier.
   - storage.ts was NOT re-documented (DIRECTION "검증만"); the verification detail
     lives here. GitHub issue #11 commented + closed.
+- **Upstream #81/#70 triage → RE-51 + RE-52 (2026-08-23, run 65 E2E):** the
+  08-21 upstream issue batch (#66/#68/#70/#72/#75/#81/#82/#83) triaged against the
+  INSTALLED 1.7.1 binary. Two behaviorally-verifiable confirmed as REs with XFAIL
+  tests: **#81 → RE-51** (`memory_checkpoint` writes into an archived circle with
+  NO disclosure, sev:major/S2, test54 — the checkpoint/save sibling of RE-17) and
+  **#70 → RE-52** (`monet install` crashes with an unhandled TypeError on malformed
+  `hooks.PostToolUse*` because `validateSettingsShape` only validates PreToolUse
+  and early-returns `{ok:true}` when it is absent, sev:minor/S3, test55). The other
+  six (#66/#68/#72/#75/#82/#83) are structural/gate-ledger issues with no clean
+  MCP/CLI XFAIL surface → routed L2 (see `diary/2026-08-23.md`).
+- **RE-worker run 66 (2026-08-23):** created the two module docs the ISSUES rows
+  point at — `checkpoint-circle.md` (RE-51, wired from mcp-server.ts:1816-1853)
+  and `cli.md` (RE-52, install-cli.ts:1019-1043 `validateSettingsShape`) — and
+  promoted RE-51/RE-52 into the L2-code-fix-queue (active queue 12→14). This
+  completes the RE-side bookkeeping for the 08-21 batch.
 - **E2E verification loop (2026-08-18, run 44):** RE-45 converted to XFAIL test36
   and CONFIRMED. **RE-45** (memory_fetch hidden writer, test36): a second
   connection (Python sqlite3, stdlib) holds `BEGIN IMMEDIATE` + one insert on the
