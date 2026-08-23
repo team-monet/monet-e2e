@@ -156,6 +156,27 @@ Related-graph thresholds (same source constants):
 - **RE-03 (maintainability note):** the core logic is fully duplicated between
   `dist/index.js` and the `dist/cli.js` bundle (`xH`/`IN`/`oi` vs `V1`/`sT`/`gN`).
   Any source patch must touch both; keep them in sync when diffing versions.
+- **RE-53 (structural, upstream #88, 2026-08-24): ambiguity-gate stores are counted
+  by no resolution event.** #86 added a third attach outcome — below `tauMargin`
+  the store writes nothing and returns candidates for the caller to resolve with
+  `attachTo`/`forceNew`. Neither half of that exchange reaches `decidedTotal`: (a)
+  the ask itself throws from inside the write transaction before
+  `recordResolutionEvent`, deliberately, because that is what makes nothing-written
+  structural rather than a rule the next edit must remember — but the throw already
+  rolls the transaction back, so no row can exist there; (b) the retry records
+  `direct-attach`/`force-new`, and `DECIDED_RESOLUTION_MODES` excludes both, for an
+  older-and-still-valid reason (bulk import/consolidation sessions are mostly
+  explicit `attachTo`, and counting those would dilute the fork rate toward zero
+  with writes that were never allowed to fork). Each exclusion is defensible alone;
+  together they drop the whole exchange, so every rate that divides by
+  `decidedTotal` — fork rate, duplicate-emission rate — is measured only over the
+  stores the gate let through silently: a selection bias toward exactly the
+  population the gate exists to shrink, growing as the gate does more work.
+  `resolution.ts`'s `DECIDED_RESOLUTION_MODES` note records the gap in place
+  (`decidedTotal` means decisions-the-substrate-made-alone, not stores), so the
+  number is not read as complete meanwhile. Fix is wider than #87 (schema change
+  for the ask's observation-less row + caller-supplied retry signal), so routed L2.
+  Found by Codex review on #87. No MCP/CLI surface → `source` status.
 
 ## Cross-check against readable TS (2026-08-16, run 34)
 

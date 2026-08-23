@@ -224,6 +224,38 @@ and the alternatives", etc.).
   Fine for local-first scale; the scan cost grows linearly with store size.
 - **RE-07 (UX nit):** `limit` truncation is silent — no flag tells the caller
   more matches existed; only JSON-size truncation is reported.
+- **RE-54 (structural, upstream #89, John-ratified 2026-08-24): the calibration
+  scripts reimplement the decisions they justify.** Twelve
+  `packages/core/scripts/measure-*.ts` exist to characterize shipped behavior, and
+  the constants they justify name them in their comments (`tauAttach`,
+  `tauAmbiguous`, `edgeSimMin`, `NATIVE_SCORE_FLOOR`, `LEXICAL_BOOST`,
+  `reliableSegmentTokens`, `tauMargin`). None calls `scoreNativeConceptsByObservation`
+  (0/12) and only one calls `resolveIncoming` (1/12); each rebuilds the scoring from
+  `better-sqlite3`/`embedding`/`lexical-overlap` primitives instead of calling the
+  engine functions (in `retrieval.ts` / `resolution.ts` / `dedup-resolution.md`).
+  A reimplementation silently drifts toward making the constant look derived —
+  nothing fails when the harness and the engine disagree. Codex review of #87 found
+  11 divergences across 4 rounds, every one numerically inert or near it by luck:
+  skipped the centroid confirmation the margin gate sits inside; maximised over the
+  PROBE's segments where the store embeds content once and compares that single
+  vector against stored segments; priced landings production refuses before the
+  margin is consulted; dropped `correction` probes the gate governs; removed
+  normative rows from candidate EVIDENCE; counted retired concepts the candidate
+  query excludes; lost pre-backfill observations whose scorer falls back to
+  `observations.embedding`; IDF computed once over the full corpus (replays count
+  the withheld probe's own tokens); excluded `rule`/`principle`/`preference` probes
+  wholesale though only `declare()` entrances are exempt and `memory_store` accepts
+  those kinds directly; ranked rules as ordinary destinations for `correction`
+  probes where production supersedes/forks; did not exclude `kind='workstream'`
+  which `resolutionCandidates()` does. The probe-unit defect is on
+  `measure-attach-thresholds.ts:87`, so the shipped `tauAttach` derivation from
+  #155 inherits it. A fidelity test is NOT the fix — `STARTER_SUITE` seeds 98 obs/98
+  segs (1.0/obs), so `probe.vecs[0]` IS `probe.whole` and the probe-unit divergence
+  cannot appear there (0 of 1960 concept scores differ). Fix = a shared driver that
+  calls the engine's scorer and decision, then re-derive each constant per profile
+  recording whether the value moved; base script is `measure-gate.ts` or
+  `scoreNativeConceptsByObservation` (module function in `retrieval.ts`). No MCP/CLI
+  surface → `source` status.
 
 ## Cross-check against readable TS (2026-08-16, run 34)
 
