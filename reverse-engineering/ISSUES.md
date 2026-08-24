@@ -48,7 +48,7 @@ still-open bug and flips to `XPASS` when fixed); `—` = not yet E2E-verified.
 | RE-14 | Store-side auto-flag fires only when correction ATTACHES; a correction that creates (below tauAttach/forceNew) opens no contradiction | contradiction-processing.md | by-design | — | S3 |
 | RE-15 | memory_fetch status/openContradictions depend on derived column; latent coupling if a closer ever skips recompute | contradiction-processing.md | by-design | — | S4 |
 | RE-16 | Explicit-circle recall bypasses archive hide (active alias → archived name still resolves) | circle-routing.md | by-design | — | S4 |
-| RE-17 | storeInternal has no archived-circle guard: memory_store into an archived circle succeeds silently | circle-routing.md | confirmed | test24 | S3 |
+| RE-17 | storeInternal has no archived-circle guard: memory_store into an archived circle succeeds silently (partial: PR #78 shipped in 1.7.1 adds ack `guidance:"ARCHIVED CIRCLE: '<circle>' was archived…"` disclosure + `landed_in_archived_circle` col/field — verified on installed 1.7.1 2026-08-25 — but the refuse contract test24 asserts is still unmet; write still succeeds) | circle-routing.md | confirmed | test24 | S3 |
 | RE-18 | renameCircle doesn't refuse when `from` is an active alias to a third circle; upsert silently re-targets it | circle-routing.md | by-design | — | S4 |
 | RE-19 | mergeCircle HARD-DELETES workstream concepts (no tombstone/confirmation), counts as noop | circle-routing.md | fixed | test23 | S2 |
 | RE-20 | Every dashboard API request copies the whole store (~0.4–0.5s on 75MB); scales linearly, no cache/ETag | dashboard.md | by-design | — | S3 |
