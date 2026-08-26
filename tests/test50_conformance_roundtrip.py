@@ -130,24 +130,30 @@ def main():
         ruleA = str(uuid.uuid4())
         spool_seed(spool, seed_judicable(spool, midA, ruleA, default_circle))
 
-        # ASK signal names the moment before it is asked (on a success response).
-        rawA = c.call("memory_store", {"content": "fold-A-" + TS}, timeout=120)
-        ask_blocks = [(b.get("text", "")) for b in (rawA.get("content", []) if isinstance(rawA, dict) else [])
-                      if "conformance_ask" in (b.get("text", "") or "")]
-        check("ask_signal_names_moment_before_ask", any(midA in t for t in ask_blocks),
-              f"blocks={len(ask_blocks)}")
+        # 1.9.0 change (gate retired): the moment spool is no longer FOLDED eagerly
+        # at store-time into a governed_moments row, and the store-time ASK signal
+        # (which used to name moments that owe a conformance question on a success
+        # response) is gone. Materialization is now LAZY: `conformance_ask` reads the
+        # spool and mints/updates the row on demand. Pin the lazy contract:
+        c.call("memory_store", {"content": "fold-A-" + TS}, timeout=120)
+        row_pre = sql(db, "SELECT opened FROM governed_moments WHERE moment_id='%s';" % midA)
+        check("seed_not_prematerialized_lazy", row_pre == "",
+              f"pre-ask row={row_pre!r}; no eager fold (moments materialize at ask)")
 
-        # DB: the seeded moment folded to a judicable row (opened, rule_reads, outcome).
-        row = sql(db, "SELECT opened, rule_reads, outcome_at FROM governed_moments WHERE moment_id='%s';" % midA)
-        cols = row.split("|")
-        judicable = len(cols) == 3 and cols[0] == "1" and "{" in cols[1] and ruleA in cols[1] and cols[2]
-        check("seeded_judicable_row", judicable, f"row={row!r}")
-
-        # conformance_ask -> {recorded: ask, momentId}
+        # conformance_ask -> {recorded: ask, momentId}; this LAZILY materializes a
+        # judicable row from the spool (opened, rule_reads, outcome).
         ack = c.call_json("conformance_ask", {"momentId": midA})
         check("conformance_ask_ack", ack.get("recorded") == "ask" and ack.get("momentId") == midA,
               f"ack={json.dumps(ack)}")
         check("asked_at_written", bool(sql(db, "SELECT asked_at FROM governed_moments WHERE moment_id='%s';" % midA)))
+
+        # After ask: the seed DID fold to a judicable row (opened=1, its rule
+        # appears in rule_reads, outcome_at recorded) — the spool read survived the
+        # lazy path.
+        row = sql(db, "SELECT opened, rule_reads, outcome_at FROM governed_moments WHERE moment_id='%s';" % midA)
+        cols = row.split("|")
+        judicable = len(cols) == 3 and cols[0] == "1" and "{" in cols[1] and ruleA in cols[1] and cols[2]
+        check("materialized_judicable_on_ask", judicable, f"row={row!r}")
 
         # conformance_answer "followed" -> {recorded: answer, answer: followed}
         ack = c.call_json("conformance_answer", {"momentId": midA, "answer": "followed"})
@@ -195,12 +201,14 @@ def main():
         check("same_answer_repeat_allowed", r.get("recorded") == "answer" and r.get("answer") == "not-followed",
               f"r={json.dumps(r)}")
 
-        # 4. A moment that was read + acted no longer owes a question after answering:
-        #    a later success response must NOT name it in the ask signal.
-        rawB = c2.call("memory_store", {"content": "after-answer-" + TS})
-        ask_after = any(midB in (b.get("text", "") or "") for b in (rawB.get("content", []) if isinstance(rawB, dict) else [])
-                        if "conformance_ask" in (b.get("text", "") or ""))
-        check("answered_moment_no_longer_owed", not ask_after)
+        # A moment that was read + acted + answered no longer OWES its question; in the
+        # 1.9.0 lazy model a re-ask is still accepted, but the durable contract is that
+        # re-asking never ERASES the recorded answer (the verdict survives a re-ask).
+        r2 = c2.call_json("conformance_ask", {"momentId": midB})
+        check("reask_keeps_answer",
+              r2.get("recorded") == "ask" and
+              sql(db, "SELECT answer FROM governed_moments WHERE moment_id='%s';" % midB) == "not-followed",
+              f"reask={json.dumps(r2)}")
 
         # 5. RE-27 evidence: the conformance half exposes ONLY ask + answer (a per-moment
         #    verdict); there is no conformance retirement / advisory-dismissal surface — so

@@ -1,47 +1,32 @@
 #!/usr/bin/env python3
-"""Scenario (CLI surface): `monet install` — Claude Code PreToolUse hook wiring (test37).
+"""Scenario (CLI surface): `monet uninstall` — retired gate-hook removal (test37).
 
-The MCP stdio surface (`monet start`) and `monet config` (test35) are the only
-paths exercised so far; the `monet install` subcommand — the client's Claude Code
-hook installer — sat at 5.3% source line coverage (install-cli.ts, 1420 lines),
-the largest non-deprecated CLI gap (see coverage-gaps.md). This scenario drives
-`monet install` through the same process boundary and pins its on-disk contract.
+`monet install` (the Claude Code gate-hook installer, install-cli.ts) was
+REMOVED in @team-monet/monet 1.9.0 — `monet gate` is now a RETIRED stub
+("this hook no longer evaluates anything and is failing OPEN") and the only
+hook-management command left is `monet uninstall`, which removes the retired
+gate-hook entries from Claude Code settings (uninstall-cli.ts, the new surface
+that replaced the installer's write path).
 
-`monet install` is side-effectful by design (it writes `~/.monet/gate-hook.mjs`
-+ a settings file + may create the SQLite store via `ensureMonetDir`/`deriveCircle`).
-Isolation (GR-01 + the HOME-redirect technique from test25/26/28):
-  - HOME          -> temp dir  (isolates `homedir()`: the wrapper path
-                    `<home>/.monet/gate-hook.mjs` and `--user`'s
-                    `<home>/.claude/settings.json`)
-  - MONET_STORAGE_DIR -> temp dir (isolates the store `ensureMonetDir`/
-                    `deriveCircle` open — `getMonetDir` checks this env FIRST)
-  - MONET_CIRCLE  -> fixed name (pins the circle so `deriveCircle` returns
-                    immediately; avoids git-remote lookup against the parent
-                    `~/.monet-test` repo). One arm (I) drops it to exercise the
-                    real folder-hash deriveCircle + store-write path.
-  - --project <tmp> -> isolates `<project>/.claude/settings.local.json`.
-No embedder/model is loaded by `monet install` (pure file-writing command), so
-MONET_MODEL_CACHE redirection is unnecessary here.
+This drives `monet uninstall` through the process boundary and pins its on-disk
+contract (mirror of the removed-test37 install arms, now on the removal side):
+  - no-hook state -> clean rc=0 no-op ("no Monet hook entries found")
+  - the scan-path message proves isolation (HOME/.monet/gate-hook.mjs AND the
+    MONET_STORAGE_DIR gate-hook.mjs are both listed -> storage-path resolution
+    is -d/env-honoured)
+  - --dry-run is read-only (a settings.local.json with a gate-hook reference
+    is left byte-identical)
+  - a real run REMOVES the gate-hook handler from settings.local.json
+  - `monet gate --help` documents the retired/fail-open contract + uninstall hint
 
-Arms:
-A. project scope (default) — real write: wrapper 0755 + settings.local.json with
-   anchored ^Bash$ / ^(Task|Agent)$ PreToolUse matchers + exec-form handler
-   (args = [wrapperPath, --circle, <pin>]) + WIRED/NOT WIRED coverage report.
-B. idempotent re-install + foreign-hook preservation (isMonetGateHandler's
-   full-path recognition + upsertMonetGateHook's clean-then-add).
-C. --user scope — ~/.claude/settings.json, NO --circle pin (per-invocation
-   resolution).
-D. --dry-run — prints what WOULD be written; writes NOTHING (readOnly deriveCircle).
-E. refusal: --project <nonexistent> -> rc 1, no file.
-F. refusal: existing settings file is invalid JSON -> rc 1, file untouched.
-G. refusal: valid JSON but wrong shape (hooks as a string) -> rc 1.
-H. refusal: MONET_CIRCLE='*' (reserved wildcard) -> rc 1.
-I. real deriveCircle (no MONET_CIRCLE, non-git project) -> folder-hash pin +
-   store monet.db created with remote_circle_map table.
+Isolation (GR-01): HOME + MONET_STORAGE_DIR + MONET_CIRCLE redirected to temp
+dirs; no prod path touched, no embedder loaded (pure file/CLI command).
+
+Exit codes: 0 = PASS, 1 = FAIL (unexpected). No XFAIL (no tracked bug here —
+this is the adapted surface-baseline for the removed installer).
 """
 import json
 import os
-import sqlite3
 import sys
 import tempfile
 
@@ -61,221 +46,79 @@ def check(name, cond, detail=""):
         print(f"  FAIL {name}" + (f"  [{detail}]" if detail else ""))
 
 
-def read_json(path):
-    try:
-        with open(path, "r") as f:
-            return json.load(f)
-    except Exception:
-        return None
-
-
-def monet_handlers(groups, wrapper):
-    """Count handlers in a matcher group that reference this command's wrapper."""
-    n = 0
-    for g in groups or []:
-        for h in g.get("hooks") or []:
-            args = h.get("args")
-            if h.get("type") == "command" and isinstance(args, list) and args and args[0] == wrapper:
-                n += 1
-    return n
-
-
 def main():
-    # A. project scope — real write, circle pinned via MONET_CIRCLE
+    # Assert `monet install` is genuinely gone (the premise of the adaptation):
+    probe = run_cli(["install"], env_extra={"HOME": "/tmp/x", "MONET_STORAGE_DIR": "/tmp/y"})
+    gone = probe[0] == 1 and ("unknown command" in (probe[1] + probe[2]) or
+                              "Did you mean uninstall" in (probe[1] + probe[2]))
+    check("install_command_removed", gone, f"rc={probe[0]} msg={(probe[1]+probe[2]).strip()[-60:]!r}")
+
+    # ---- no-hook state: clean no-op ----
     with tempfile.TemporaryDirectory() as td:
         home = os.path.join(td, "home")
         store = os.path.join(td, "store")
-        proj = os.path.join(td, "project")
         os.makedirs(home)
-        os.makedirs(proj)
-        env = {"HOME": home, "MONET_STORAGE_DIR": store, "MONET_CIRCLE": "e2e-circle"}
-        rc, out, err = run_cli(["install", "--project", proj], env_extra=env)
-        check("A_rc0", rc == 0, f"rc={rc}")
+        os.makedirs(store)
+        env = {"HOME": home, "MONET_STORAGE_DIR": store, "MONET_CIRCLE": "e2e-uninstall"}
+        # U1. real run with no hook -> rc 0, "nothing to remove".
+        rc, out, err = run_cli(["uninstall"], env_extra=env)
+        text = out + "\n" + err
+        check("U_no_hook_rc0", rc == 0, f"rc={rc}")
+        check("U_no_hook_noop", "no Monet hook entries found" in text or "nothing to remove" in text,
+              f"msg={text.strip()[-70:]!r}")
+        # U2. the scan-path message lists BOTH the HOME wrapper AND the storage-dir wrapper
+        #     (storage-path resolution honours MONET_STORAGE_DIR / -d, not a hardcoded ~/.monet).
+        check("U_scan_lists_home_wrapper",
+              os.path.join(home, ".monet", "gate-hook.mjs") in text,
+              "home wrapper listed")
+        check("U_scan_lists_storage_wrapper",
+              os.path.join(store, "gate-hook.mjs") in text,
+              "storage-dir wrapper listed")
 
-        wrapper = os.path.join(home, ".monet", "gate-hook.mjs")
-        check("A_wrapper_written", os.path.exists(wrapper), wrapper)
-        if os.path.exists(wrapper):
-            mode = os.stat(wrapper).st_mode & 0o777
-            check("A_wrapper_mode_755", mode == 0o755, oct(mode))
-            wtxt = open(wrapper).read()
-            check("A_wrapper_generated", "Generated by `monet install`" in wtxt)
-        else:
-            wtxt = ""
-
-        settings_path = os.path.join(proj, ".claude", "settings.local.json")
-        check("A_settings_written", os.path.exists(settings_path), settings_path)
-        settings = read_json(settings_path) or {}
-        groups = (settings.get("hooks", {}) or {}).get("PreToolUse") or []
-        matchers = sorted(g.get("matcher") for g in groups)
-        check("A_matchers_anchored", matchers == ["^(Task|Agent)$", "^Bash$"], str(matchers))
-        by_matcher = {g.get("matcher"): (g.get("hooks") or []) for g in groups}
-        for m in ["^Bash$", "^(Task|Agent)$"]:
-            hs = by_matcher.get(m, [])
-            ok = len(hs) == 1 and hs[0].get("type") == "command"
-            check(f"A_handler_{m}_command", ok, str(hs))
-            if hs:
-                check(f"A_handler_{m}_args", hs[0].get("args") == [wrapper, "--circle", "e2e-circle"],
-                      str(hs[0].get("args")))
-        # 1.7.0 reworded the coverage report: the ungoverned space is now split
-        # into "UNGOVERNED BY CHOICE"/"UNGOVERNED BY NATURE"/"NOT ENFORCEABLE"
-        # sections instead of a single "NOT WIRED" token. Accept the old and new.
-        check("A_coverage_report",
-              "WIRED" in out and ("NOT WIRED" in out or "NOT ENFORCEABLE" in out or "UNGOVERNED" in out))
-        check("A_stderr_wrote", "monet install: wrote" in err, err.strip())
-        check("A_stderr_circle_pin", "pinned --circle e2e-circle" in err)
-
-    # B. idempotent re-install + foreign-hook preservation
-    with tempfile.TemporaryDirectory() as td:
-        home = os.path.join(td, "home")
-        store = os.path.join(td, "store")
-        proj = os.path.join(td, "project")
-        os.makedirs(home)
-        os.makedirs(os.path.join(proj, ".claude"))
-        seed = {
+        # ---- --dry-run read-only: a real hook reference is NOT removed ----
+        settings_dir = os.path.join(home, ".claude")
+        os.makedirs(settings_dir)
+        sp = os.path.join(settings_dir, "settings.json")
+        wrapper = os.path.join(store, "gate-hook.mjs")
+        seeded = {
             "hooks": {
-                "PreToolUse": [
-                    {"matcher": "^Write$", "hooks": [{"type": "command", "command": "echo foreign"}]}
-                ]
-            },
-            "userKey": "keep-me",
+                "PostToolUse": [{"matcher": "^Bash$", "hooks": [
+                    {"type": "command", "command": "node", "args": [wrapper, "--circle", "e2e-uninstall"]}]}]
+            }
         }
-        settings_path = os.path.join(proj, ".claude", "settings.local.json")
-        with open(settings_path, "w") as f:
-            json.dump(seed, f)
-        env = {"HOME": home, "MONET_STORAGE_DIR": store, "MONET_CIRCLE": "e2e-circle"}
-        rc1, _, _ = run_cli(["install", "--project", proj], env_extra=env)
-        rc2, _, _ = run_cli(["install", "--project", proj], env_extra=env)
-        check("B_both_rc0", rc1 == 0 and rc2 == 0, f"rc1={rc1} rc2={rc2}")
+        with open(sp, "w") as f:
+            json.dump(seeded, f)
+        before = open(sp, "rb").read()
+        rc, out, err = run_cli(["uninstall", "--dry-run"], env_extra=env)
+        check("U_dry_run_rc0", rc == 0, f"rc={rc}")
+        after = open(sp, "rb").read()
+        check("U_dry_run_read_only", after == before, "settings byte-identical")
 
-        wrapper = os.path.join(home, ".monet", "gate-hook.mjs")
-        settings = read_json(settings_path) or {}
-        groups = (settings.get("hooks", {}) or {}).get("PreToolUse") or []
-        by_matcher = {g.get("matcher"): (g.get("hooks") or []) for g in groups}
-        bash_hooks = by_matcher.get("^Bash$", [])
-        check("B_no_duplicate", len(bash_hooks) == 1, f"bash handlers={len(bash_hooks)}")
-        check("B_foreign_preserved",
-              by_matcher.get("^Write$") == [{"type": "command", "command": "echo foreign"}],
-              str(by_matcher.get("^Write$")))
-        check("B_top_level_preserved", settings.get("userKey") == "keep-me", str(settings.get("userKey")))
+        # ---- real run removes the gate-hook handler ----
+        rc, out, err = run_cli(["uninstall"], env_extra=env)
+        check("U_real_rc0", rc == 0, f"rc={rc}")
+        data = json.load(open(sp))
+        still_refs = wrapper in json.dumps(data)
+        check("U_real_removes_hook", not still_refs, f"settings={json.dumps(data)[:90]!r}")
 
-    # C. --user scope — ~/.claude/settings.json, no --circle pin
-    with tempfile.TemporaryDirectory() as td:
-        home = os.path.join(td, "home")
-        os.makedirs(home)
-        rc, out, err = run_cli(["install", "--user"], env_extra={"HOME": home})
-        check("C_rc0", rc == 0, f"rc={rc}")
-        settings_path = os.path.join(home, ".claude", "settings.json")
-        check("C_settings_written", os.path.exists(settings_path), settings_path)
-        settings = read_json(settings_path) or {}
-        groups = (settings.get("hooks", {}) or {}).get("PreToolUse") or []
-        wrapper = os.path.join(home, ".monet", "gate-hook.mjs")
-        bash = next((g for g in groups if g.get("matcher") == "^Bash$"), {})
-        hs = bash.get("hooks") or []
-        check("C_handler_no_circle", len(hs) == 1 and hs[0].get("args") == [wrapper], str(hs))
-        check("C_stderr_no_pin", "no --circle pinned" in err, err.strip())
-        check("C_stderr_user_global", "user-global" in err, err.strip())
+    # ---- retired gate stub is documented + fail-open ----
+    # Note: the gate notice is shown ONCE (stateful marker in the storage dir), so
+    # use a FRESH storage dir here — a reused dir whose once-marker is already set
+    # returns SILENCE (that is the stub's own persisted state, not a failure).
+    with tempfile.TemporaryDirectory() as gtd:
+        rc, out, err = run_cli(["gate"], env_extra={"HOME": os.path.join(gtd, "home"),
+                                                    "MONET_STORAGE_DIR": os.path.join(gtd, "store")})
+        text = out + "\n" + err
+        check("G_retired_rc0", rc == 0, f"rc={rc}")
+        check("G_retired_notice", "retired" in text.lower() and "uninstall" in text,
+              f"msg={text.strip()[-90:]!r}")
 
-    # D. --dry-run — nothing written
-    with tempfile.TemporaryDirectory() as td:
-        home = os.path.join(td, "home")
-        store = os.path.join(td, "store")
-        proj = os.path.join(td, "project")
-        os.makedirs(home)
-        os.makedirs(proj)
-        env = {"HOME": home, "MONET_STORAGE_DIR": store, "MONET_CIRCLE": "e2e-circle"}
-        rc, out, err = run_cli(["install", "--project", proj, "--dry-run"], env_extra=env)
-        check("D_rc0", rc == 0, f"rc={rc}")
-        wrapper = os.path.join(home, ".monet", "gate-hook.mjs")
-        settings_path = os.path.join(proj, ".claude", "settings.local.json")
-        check("D_nothing_written",
-              not os.path.exists(wrapper) and not os.path.exists(settings_path),
-              f"wrapper={os.path.exists(wrapper)} settings={os.path.exists(settings_path)}")
-        check("D_stdout_would_write", "would be written" in out)
-        check("D_stdout_report",
-              "NOT WIRED" in out or "NOT ENFORCEABLE" in out or "UNGOVERNED" in out)
-        check("D_stderr_dry_run", "--dry-run" in err, err.strip())
-
-    # E. refusal: --project <nonexistent>
-    with tempfile.TemporaryDirectory() as td:
-        home = os.path.join(td, "home")
-        os.makedirs(home)
-        missing = os.path.join(td, "does-not-exist")
-        env = {"HOME": home, "MONET_STORAGE_DIR": os.path.join(td, "store")}
-        rc, out, err = run_cli(["install", "--project", missing], env_extra=env)
-        check("E_rc1", rc == 1, f"rc={rc}")
-        check("E_refuse_msg", "does not exist or is not a directory" in err, err.strip())
-        check("E_no_settings", not os.path.exists(os.path.join(missing, ".claude")), missing)
-
-    # F. refusal: existing settings file is invalid JSON
-    with tempfile.TemporaryDirectory() as td:
-        home = os.path.join(td, "home")
-        proj = os.path.join(td, "project")
-        os.makedirs(home)
-        os.makedirs(os.path.join(proj, ".claude"))
-        settings_path = os.path.join(proj, ".claude", "settings.local.json")
-        original = "{ not valid json !!"
-        with open(settings_path, "w") as f:
-            f.write(original)
-        env = {"HOME": home, "MONET_STORAGE_DIR": os.path.join(td, "store")}
-        rc, out, err = run_cli(["install", "--project", proj], env_extra=env)
-        check("F_rc1", rc == 1, f"rc={rc}")
-        check("F_refuse_msg", "not valid JSON" in err, err.strip())
-        after = open(settings_path).read()
-        check("F_file_unchanged", after == original, repr(after))
-
-    # G. refusal: valid JSON but wrong shape
-    with tempfile.TemporaryDirectory() as td:
-        home = os.path.join(td, "home")
-        proj = os.path.join(td, "project")
-        os.makedirs(home)
-        os.makedirs(os.path.join(proj, ".claude"))
-        settings_path = os.path.join(proj, ".claude", "settings.local.json")
-        with open(settings_path, "w") as f:
-            f.write('{"hooks": "not-an-object"}')
-        env = {"HOME": home, "MONET_STORAGE_DIR": os.path.join(td, "store")}
-        rc, out, err = run_cli(["install", "--project", proj], env_extra=env)
-        check("G_rc1", rc == 1, f"rc={rc}")
-        check("G_refuse_msg", "valid JSON but not a settings file" in err, err.strip())
-
-    # H. refusal: MONET_CIRCLE='*' (reserved wildcard)
-    with tempfile.TemporaryDirectory() as td:
-        home = os.path.join(td, "home")
-        proj = os.path.join(td, "project")
-        os.makedirs(home)
-        os.makedirs(proj)
-        env = {"HOME": home, "MONET_STORAGE_DIR": os.path.join(td, "store"), "MONET_CIRCLE": "*"}
-        rc, out, err = run_cli(["install", "--project", proj], env_extra=env)
-        check("H_rc1", rc == 1, f"rc={rc}")
-        check("H_refuse_msg", "reserved wildcard circle" in err, err.strip())
-
-    # I. real deriveCircle (no MONET_CIRCLE) — folder-hash pin + store write
-    with tempfile.TemporaryDirectory() as td:
-        home = os.path.join(td, "home")
-        store = os.path.join(td, "store")
-        proj = os.path.join(td, "project")
-        os.makedirs(home)
-        os.makedirs(proj)
-        env = {"HOME": home, "MONET_STORAGE_DIR": store}  # no MONET_CIRCLE
-        rc, out, err = run_cli(["install", "--project", proj], env_extra=env)
-        check("I_rc0", rc == 0, f"rc={rc}")
-        import re as _re
-        m = _re.search(r"pinned --circle (\S+)", err)
-        pin = m.group(1) if m else None
-        check("I_pin_folder_hash", bool(pin) and pin != "*", f"pin={pin!r}")
-        db = os.path.join(store, "monet.db")
-        check("I_store_db_created", os.path.exists(db), db)
-        if os.path.exists(db):
-            con = sqlite3.connect(db)
-            try:
-                rows = con.execute(
-                    "SELECT name FROM sqlite_master WHERE type='table' AND name='remote_circle_map'"
-                ).fetchall()
-                check("I_remote_circle_map_table", len(rows) == 1, str(rows))
-            finally:
-                con.close()
-
-    print(f"\nRESULT: {len(PASS)} passed, {len(FAIL)} failed")
-    return 1 if FAIL else 0
+    if FAIL:
+        print(f"\nRESULT: {len(PASS)} passed, {len(FAIL)} failed")
+        return 1
+    print(f"\nRESULT: PASS — `monet uninstall` surface green; install removed, gate retired-stub "
+          f"contract pinned ({len(PASS)} checks)")
+    return 0
 
 
 if __name__ == "__main__":

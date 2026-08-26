@@ -69,6 +69,18 @@ def run_install_with(hooks):
 
 
 def main():
+    # `monet install` was REMOVED in @team-monet/monet 1.9.0 (the retired gate now
+    # has only `monet uninstall`; `monet gate` is a fail-open stub). The malformed
+    # PostToolUse crash this test reproduced lives in install-cli.ts, which no
+    # longer ships -> RE-52 obsolete-by-removal; SKIP instead of failing.
+    rc0, out0, err0 = run_cli(["install"], env_extra={"HOME": "/tmp/x", "MONET_STORAGE_DIR": "/tmp/y"})
+    if rc0 == 1 and ("unknown command" in (out0 + err0) or
+                     "Did you mean uninstall" in (out0 + err0)):
+        print("  SKIP: `monet install` was removed in 1.9.0 (gate retired; only "
+              "`monet uninstall` remains) — RE-52 obsolete-by-removal.")
+        print("\nRESULT: 0 passed, 0 failed (SKIP)")
+        return 0
+
     # The two concrete malformed PostToolUse shapes from #70.
     cases = {
         "group_hooks_string": [{"matcher": "x", "hooks": "not-an-array"}],
