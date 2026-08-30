@@ -217,6 +217,23 @@ sync-column backfill; before the gate-sidecar refresh).
   workstream), preserving open items byte-intact. The `counts.error`
   hardcoded-0 note remains but is now by-design (atomic `immediateTransaction`
   rollback makes a per-item error count moot).
+- **RE-56** — `reassignCircle` moves a concept into an ARCHIVED circle with no
+  archived-landing disclosure. Its only archived intervention is
+  `assertArchivedCircleMoveAllowed` (engine.ts:4165), which REFUSES only
+  circle-local live blocking RULES being moved to an archived destination;
+  every other concept (incl. a principle/preference without a live blocking
+  rule) moves freely bar the reserved `*` breadth-guard, and the receipt
+  `{action, conceptId, fromCircle, toCircle, observationsMoved}` names the
+  destination circle but no `guidance`/`archived`/`landedInArchivedCircle`
+  clause — so the caller is not told the row now sits OUTSIDE store-wide
+  recall. The move itself is intended (reassigning into an archived circle is
+  a legitimate way to shelve a concept); the gap is disclosure parity with the
+  #101 checkpoint fix (which added `landedInArchivedCircle`+`guidance` to
+  `memory_checkpoint`, RE-51). Upstream #101 names reassignCircle as a
+  remaining undisclosed path alongside declare() (RE-55). Structural (the
+  archive-move already has the assert door; the disclosure gap is entangled
+  with it — no clean separate MCP behavioral surface) → L2 (S3), registered
+  2026-08-31 (monet-e2e#32).
 
 ## Verified constants
 
