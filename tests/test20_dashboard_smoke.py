@@ -299,10 +299,18 @@ def main():
             h2 = g2.get("health", {})
             check("f_health_float", isinstance(h2.get("avgConfidence"), (int, float)),
                   f"avgConfidence={h2.get('avgConfidence')}")
+            # graphDensity contract (RE-21, FIXED in 1.9.1 via #98/#56): structural
+            # density EXCLUDES dedup pair-flag edges -> (edgesLive - dup_edges)/concepts.
+            # Pre-1.9.1 this pinned edgesLive/concepts; the fixed formula now returns
+            # (5 - dup_edges)/2 on this store (dup pair flags are the only dup edges).
             dens = h2.get("graphDensity")
-            exp = cnt.get("edgesLive", 0) * 1.0 / cnt.get("concepts", 1)
-            check("f_density_formula_re21", dens is not None and abs(dens - exp) < 1e-9,
-                  f"density={dens} expected={exp} (edgesLive={cnt.get('edgesLive')})")
+            csv2 = g2.get("edges", [])
+            dup2 = sum(1 for e in csv2 if e.get("type") in ("possible_duplicate_of", "extraction_candidate"))
+            el2 = cnt.get("edgesLive", 0) or 0
+            co2 = cnt.get("concepts", 1) or 1
+            exp2 = (el2 - dup2) * 1.0 / co2
+            check("f_density_formula_re21", dens is not None and abs(dens - exp2) < 1e-9,
+                  f"density={dens} expected={exp2} (edgesLive={el2} dupEdges={dup2} concepts={co2})")
 
             # retire one concept while the dashboard is RUNNING — proves
             # snapshot-per-request freshness (RE-20: no server-side cache).
