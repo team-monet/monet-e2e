@@ -11,17 +11,21 @@ not memory volume). Retention was deferred, with `SOURCE_ATTEMPT_EVENT_RETENTION
 
 In 1.7.0 the gate-instrumentation redesign replaced `gate_events` with the
 store-backed `governed_moments` table (a moment opens for every intercepted
-action, incl. silences, and closes with an outcome at PostToolUse). The retention
-question is UNCHANGED — governed_moments has no auto-cap/prune surface either.
+action, incl. silences, and closes with an outcome at PostToolUse). In 1.11.0
+the moment ledger moved LAZY / spool-based: `governed_moments` is minted only
+via `conformance_ask`, and plain `stage_lookup` appends MomentSpool records to
+`<store>/moments.jsonl` instead. The retention question is UNCHANGED in spirit —
+does the moment record grow unboundedly with no prune/retention surface?
 
 This test documents the DESIRED contract: gate instrumentation has a
 retention/pruning mechanism — either a CLI/doctor/MCP surface that reports and
 prunes it, or an automatic cap — so a busy store does not accumulate unbounded
-instrumentation.
+instrumentation. It measures the spool's interception lines as the busied-moment
+proxy (the old eager-fold `governed_moments` count is obsolete on 1.11.0).
 
 Exit codes:
   0/1 = normal pass/fail (setup broke -> the test itself is wrong)
-  2   = XFAIL: governed_moments still accumulates unboundedly with no prune surface
+  2   = XFAIL: the moment record still accumulates unboundedly with no prune surface
   3   = XPASS: a retention/prune surface exists, or events are auto-capped
 """
 import os
@@ -108,14 +112,28 @@ def main():
         finally:
             c.close()
 
-        # Cross-check: governed_moments accumulated one row per lookup (no auto-cap).
-        # 1.7.0 moved gate recording from the removed `gate_events` table into the
-        # store-backed `governed_moments` table (the gate-instrumentation redesign;
-        # the offline file-journal + claimType machinery was dropped in the same
-        # release — see test39). RE-26's retention question is unchanged in spirit:
-        # does governed_moments still grow unboundedly with no prune surface?
-        cnt = int(sql(db, "SELECT COUNT(*) FROM governed_moments;") or "0")
-        check("governed_moments_accumulated", cnt >= N_FIRES, f"count={cnt} (fired {N_FIRES}+1)")
+        # Measure moment accumulation. 1.11.0 made the moment ledger LAZY / spool-based:
+        # `stage_lookup` no longer folds into the `governed_moments` table eagerly (that
+        # table is minted only via `conformance_ask`); instead the interceptor appends a
+        # MomentSpool record per lookup to <store>/moments.jsonl — one `interception` +
+        # `read` per lookup that returns rules, plus `outcome` on close. RE-26's retention
+        # question is UNCHANGED in spirit: does the moment record grow unboundedly with no
+        # prune/retention surface? The spool is the truth (moment-ledger.ts: "NOTHING EVER
+        # SHORTENS THE SPOOL, AND NO MECHANISM HERE RECLAIMS ITS SPACE ... Growth is
+        # therefore unbounded in principle"). Count the spool's interception lines as the
+        # busied-moment proxy (a `governed_moments` table may not exist until conformance_ask).
+        spool = os.path.join(store, "moments.jsonl")
+        spool_lines = 0
+        if os.path.exists(spool):
+            import json as _json
+            for ln in open(spool):
+                try:
+                    if _json.loads(ln).get("kind") == "interception":
+                        spool_lines += 1
+                except Exception:
+                    pass
+        cnt = spool_lines
+        check("moment_record_accumulated", cnt >= N_FIRES, f"spool interceptions={cnt} (fired {N_FIRES}+1)")
 
         # ---- DESIRED contract: a retention/prune surface exists ----
         # Enumerate the CLI + MCP surfaces that could read/prune gate_events.
