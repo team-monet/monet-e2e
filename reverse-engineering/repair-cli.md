@@ -125,3 +125,26 @@ protocol (segments deleted + reinserted per observation in one transaction).
   recheck closure only exists for that intersection). Only workaround is
   `--accept-non-latin-loss`, which switches off the very guard the recheck exists
   to enforce. Fails closed (no rewrite, backup retained) — hence S2 not S1.
+- **RE-57 (S3, confirmed on dist 1.11.0 → upstream #120, fix already merged in `main`):**
+  the `--json` recovery envelope drops the startup record on the failure path. On
+  1.11.0, a corrupt store makes `monet start` die closed at `phase: "store-open"`
+  and write `monet.db.startup-failure.json` (`error.code: "SQLITE_NOTADB"`); the
+  TEXT `doctor` surfaces it ("last recorded startup failure … startup-failure.json")
+  while the SAME invocation's `--json` document (`monet.recovery.v1`) returns
+  `{schema, command, ok:false, dbPath, error:{RepairOperationError "… (not-sqlite):
+  file is not a database"}, inspection:null, provider:{loadStatus:"not-checked"},
+  nextCommands:[], backup:null, report:null}` — the `startupFailure` key the SUCCESS
+  path carries (`{"status":"none"}`) is simply absent. So the machine-readable
+  surface an operator/CI reads to triage a damaged store loses the cause, and
+  RE-50's out-of-band diagnosis (1.7.1) stays reachable only from human-readable
+  text — the asymmetry is on the wrong half (the success document is the one nobody
+  triages). Upstream closed #120 on 2026-09-14T02:35Z (PR #153, commit `9fa38c2`,
+  "carry startupFailure into doctor --json on the failure path", preserving
+  `none|unreadable|found`) — merged into `main` AFTER the published 1.11.0, so the
+  shipped release still exhibits the gap. Regression guard **test57** (XFAIL on
+  1.11.0 → XPASS once the fix ships): asserts the three-state contract on the
+  failure path (`status:"found"` + `phase` + `error.code`) and, as a hard
+  assertion, that the fresh/success path keeps `startupFailure:{status:"none"}`.
+  Code anchors (`repair-cli.ts:540` binding outside the `try`, catch at `:567`
+  calling `printRecoveryError` at `:1151`) are upstream-reported; this run verified
+  behavior on the shipped dist only (GR-08).
