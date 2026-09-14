@@ -32,3 +32,7 @@ __pycache__/
 .venv/
 build/
 .cov-raw/
+
+# Worker operational state (pilot/reverse agent state, diary mirrors, review artifacts)
+# created by the v3 agent-ops mechanism — local runtime state, never commit
+artifacts/
