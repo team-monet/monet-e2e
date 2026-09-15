@@ -37,9 +37,12 @@ Measured on 1.11.0 (2026-09-15, isolated temp store)
 
 Desired contract (asserted below — pre-registered flip candidate for the next
 release bump): `monet start` refuses to open a store newer than this build.
-PR #155 lands that ceiling in `main` (unreleased as of 1.11.0). The flip signal
-is the REFUSAL only; #156 records that the fixed CLI still writes the circle map
-before the refusal, so this test does not assert a write-free store.
+The ceiling fix is PR #155, which is **OPEN and NOT merged** (verified
+2026-09-16: `state=OPEN`, `mergedAt=null`, HEAD `e81db7b`, base `main`; `main`
+HEAD is `9fa38c2` and the shipped 1.11.0 bundle carries 0 occurrences of
+`readStoredSchemaVersion` / `refusing to open`). The flip signal is the REFUSAL
+only; #156 records that the fixed CLI still writes the circle map before the
+refusal, so this test does not assert a write-free store.
 
 Exit codes:
   0/1 = setup broke (test itself wrong)
@@ -276,7 +279,7 @@ def main():
     assert bug_present
     print(f"\nRESULT: XFAIL {ISSUE} — dist 1.11.0 has no schema ceiling: an above-ceiling store "
           f"opens, is bootstrapped and served, while `monet repair` refuses the same store "
-          f"(upstream {UPSTREAM}; PR #155 unreleased)")
+          f"(upstream {UPSTREAM}; ceiling PR #155 OPEN, not merged, unreleased)")
     return 2
 
 

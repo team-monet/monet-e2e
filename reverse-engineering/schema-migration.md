@@ -344,7 +344,11 @@ was observed in this run** — the measured defect is the *silent acceptance*, n
 demonstrated corruption. Desired contract: refuse to open, writing nothing.
 
 **Flip semantics (next bump).** The guard's flip signal is the REFUSAL only.
-Upstream #156 (unreleased PR #155 lands the ceiling in `main`) records that the
+The ceiling fix is PR #155, **OPEN and NOT merged** as of 2026-09-16 (direct
+PR-state read: `state=OPEN`, `mergedAt=null`, HEAD `e81db7b`; `main` HEAD
+`9fa38c2`, and the shipped 1.11.0 bundle contains 0 occurrences of
+`readStoredSchemaVersion` / `refusing to open`), so neither `main` nor 1.11.0
+carries the ceiling. Upstream #156 records that the
 fixed CLI still writes the circle map before refusing, so test58 deliberately does
 **not** assert a write-free store — asserting it would turn a fix into a FAIL. The
 four stable invariants (`doctor` schema line, `Assessment: unknown`, `repair`
