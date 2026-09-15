@@ -287,6 +287,71 @@ those rungs are NOT no-ops:
 - `firstBlockObservationId` = `fb-migration:` + sha256(id+`\0`+sha256(summary))[:32] (lines 364–372) = `HT`.
 - `migrateFirstBlockPins` runs in `immediateTransaction`, window `[9,12) → 12` (lines 3797–3846) — matches the doc.
 
+## RE-58 — the missing schema-version ceiling (2026-09-15, E2E-reproduced on dist 1.11.0)
+
+Baseline (GR-08): **dist `@team-monet/monet@1.11.0`** (`1c7d1e5`), driven over public
+surfaces only — `monet start` (MCP stdio), `monet doctor`, `monet repair`. Guard:
+`tests/test58_re58_schema_ceiling_shipped.py` (XFAIL, exit 2 while the bug is present).
+
+**Why it existed as a gap.** Upstream #107 ("The engine constructor has no
+schema-version ceiling: a newer-than-supported store opens successfully where
+repair refuses it") states its own limit: *"Inferred, not reproduced … No fixture
+was built that stamps `user_version` above the ladder and opens the store, so the
+actual observed failure mode — which statement throws first, what the message
+says, and whether anything writes before it does — is not established here."*
+This run builds exactly that fixture and answers all three questions.
+
+**Fixture recipe (minimal, no product source needed).** Build a real store
+(`monet start -d <dir>` + one `memory_store`), read `supported` from the product's
+own `monet doctor` line (`Schema: 13 (supported: 13)`), then stamp above it with
+stdlib sqlite3 — for the bare arm, `PRAGMA user_version=<supported+1>` on a
+`monet.db` that has **zero tables** (the #156 repro shape). Two arms are needed:
+
+- **arm A** — bare store, 0 tables, `user_version = supported+1 (14)`.
+- **arm B** — real store with a seeded observation, then stamped to the same value
+  (the downgrade journey: does an older build serve rows it cannot name?).
+
+**Measured (both arms, 1.11.0).**
+
+| probe | arm A (bare, 14) | arm B (seeded, 14) |
+|---|---|---|
+| `monet start` | **accepted** — no refusal, stderr `Monet started` | **accepted** — `Monet started` + storage/circle banner |
+| store after open | `user_version` **14** (unchanged), tables **0 → 27**, `-wal`/`-shm` created | `user_version` **14**, pre-existing observation still retrievable by `memory_search` |
+| writes | `memory_store` + `memory_search` succeed; the row survives a **second, independent session** | — |
+| `monet doctor` | `Schema: 14 (supported: 13)`, `Assessment: unknown` (rc 2) | same |
+| `monet repair` | **refuses**: `Store schema 14 is newer than supported schema 13; refusing repair.` (rc 1) | same |
+
+**Answers to #107's three questions.** (1) *Which statement throws first* — **none**.
+Nothing throws: the constructor, the store-open path and the write path all run
+clean, because the **version ladder is skipped above the ceiling** while the
+idempotent, `table_info`-guarded table-ensuring DDL runs **unconditionally** — so a
+store this build cannot name gets a full 27-table layout stamped onto it. (2) *What
+the message says* — there is **no message**: the failure #107 predicts is deferred
+past every surface the user touches. (3) *Whether anything writes before it does* —
+**yes, and that write is the engine's own bootstrap DDL**, so "the store is
+untouched because the caller wrote nothing" is false; the store is rewritten by the
+open itself.
+
+**The asymmetry is behavioral, not just code-read.** `monet repair` refuses the
+exact store `monet start` happily serves (same process family, same version). So a
+user whose store is one schema ahead of their binary gets a working-looking server
+and a refusal from the one tool that would have told them to upgrade.
+
+**Hazard (framed conservatively).** Every subsequent write lands in a store whose
+schema this binary does not know, so the write is unsupported **by construction**
+(an older binary can write rows a newer schema reads differently). **No data loss
+was observed in this run** — the measured defect is the *silent acceptance*, not a
+demonstrated corruption. Desired contract: refuse to open, writing nothing.
+
+**Flip semantics (next bump).** The guard's flip signal is the REFUSAL only.
+Upstream #156 (unreleased PR #155 lands the ceiling in `main`) records that the
+fixed CLI still writes the circle map before refusing, so test58 deliberately does
+**not** assert a write-free store — asserting it would turn a fix into a FAIL. The
+four stable invariants (`doctor` schema line, `Assessment: unknown`, `repair`
+refusal text + rc, version unchanged after the journey) hold **before and after**
+the fix and therefore stay hard `check()`s: if one of them breaks, the *test* is
+wrong.
+
 ## Next steps
 1. Circle routing / aliases lifecycle (create/archive/`*` breadth) — includes
    `resolveCircle`, `circle_aliases` statuses, `migrateLegacyStarCircle` tail.
