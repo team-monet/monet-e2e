@@ -358,6 +358,53 @@ refusal text + rc, version unchanged after the journey) hold **before and after*
 the fix and therefore stay hard `check()`s: if one of them breaks, the *test* is
 wrong.
 
+### Flip-time checklist — pre-registered from the PR's own shape (2026-09-17, run 116)
+
+Upstream #155 moved after the 2026-09-16 record: a third commit landed on the
+branch (`770cd98`, 2026-09-16T21:52:31Z, "fix(core): keep the schema-version
+preflight side-effect-free on WAL stores"), still **OPEN / `mergedAt=null`**,
+base `main`, CI 4/4 green. Read at run time (G-5), not carried forward. It matters
+to this guard because it changes the read strategy of `readStoredSchemaVersion` —
+the function whose absence is this RE's shipped-side signature — so the flip
+procedure is pre-registered here instead of being improvised at flip time.
+
+What the new HEAD does (read from the PR diff; **unreleased — not measured**):
+the preflight now branches on the store's sidecar shape.
+
+| sidecar shape | preflight read | consequence at flip |
+|---|---|---|
+| no `-wal`/`-shm`/`-journal` | SQLite file header, offset 60 (no SQLite connection) | conclusive; the new commit's "side-effect-free" path |
+| `-wal` + `-shm`, no `-journal` | readonly connection, zero timeout (as before) | conclusive |
+| any other shape (orphan `-wal`, `-journal` present, malformed) | returns `null` → *live port decides* | refusal depends on the constructor's live re-check |
+
+The engine-side refusal itself is **untouched** by `770cd98` (its 4 changed lines
+are a comment; the diff solely rewrites the comment to cite #156). **Flip signal
+is unchanged: the REFUSAL only.**
+
+**Fixture shapes measured this run (installed 1.11.0, isolated temp stores):**
+
+| arm | files at journey start | branch after the fix |
+|---|---|---|
+| A — bare store, `user_version` stamped, stdlib `sqlite3` clean close | `monet.db` only (`journal_mode=delete`) | HEADER |
+| B — real store built by an MCP session, harness `close()` | `monet.db` + `moments.jsonl` (`journal_mode=wal`, WAL checkpointed, sidecars removed) | HEADER |
+| stray: `-wal` without `-shm` | `monet.db` + `monet.db-wal` | NULL → live port |
+| stray: `-journal` present | `monet.db` + `monet.db-journal` | NULL → live port |
+
+So both of test58's arms present a *conclusive* preflight in the fixed build —
+the guard does not silently depend on the live re-check.
+
+Steps to run when a release carries the ceiling change:
+1. Re-run test58 unmodified and require **XPASS (exit 3)**; a still-XFAIL means the
+   release did not carry the change (a bump alone is not a flip).
+2. Additionally confirm the refusal still fires on the **stray-sidecar shapes**
+   (test58's two arms do not cover them) — that path is now decided by the live
+   re-check, so it is the one place the ceiling could regress unnoticed.
+3. Report residue as a **measurement, not an assertion**: the cleanly-closed arms
+   should leave no new `-wal`/`-shm`, but #156 (now cited in `engine.ts`'s own
+   comment on this HEAD) keeps the CLI's pre-engine circle-map open alive, so a
+   write from that path may still appear. Asserting absence would turn the fix
+   into a FAIL — keep the write-free check out of the guard.
+
 ## Next steps
 1. Circle routing / aliases lifecycle (create/archive/`*` breadth) — includes
    `resolveCircle`, `circle_aliases` statuses, `migrateLegacyStarCircle` tail.
