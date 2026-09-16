@@ -343,7 +343,9 @@ schema this binary does not know, so the write is unsupported **by construction*
 was observed in this run** — the measured defect is the *silent acceptance*, not a
 demonstrated corruption. Desired contract: refuse to open, writing nothing.
 
-**Flip semantics (next bump).** The guard's flip signal is the REFUSAL only.
+**Flip semantics (release-content only — NOT "the next bump").** This guard flips
+only in a release whose contents actually carry the #155 ceiling change; a version
+bump by itself does not flip it. The guard's flip signal is the REFUSAL only.
 The ceiling fix is PR #155, **OPEN and NOT merged** as of 2026-09-16 (direct
 PR-state read: `state=OPEN`, `mergedAt=null`, HEAD `e81db7b`; `main` HEAD
 `9fa38c2`, and the shipped 1.11.0 bundle contains 0 occurrences of

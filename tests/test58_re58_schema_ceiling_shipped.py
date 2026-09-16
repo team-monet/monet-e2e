@@ -35,8 +35,10 @@ Measured on 1.11.0 (2026-09-15, isolated temp store)
 - A real store with content, then stamped above the ceiling, is likewise opened
   and its pre-existing concept is returned to search by the older build.
 
-Desired contract (asserted below — pre-registered flip candidate for the next
-release bump): `monet start` refuses to open a store newer than this build.
+Desired contract (asserted below — pre-registered flip candidate, but ONLY for a
+release whose contents actually include the #155 ceiling change; a version bump
+alone does not flip this guard): `monet start` refuses to open a store newer than
+this build.
 The ceiling fix is PR #155, which is **OPEN and NOT merged** (verified
 2026-09-16: `state=OPEN`, `mergedAt=null`, HEAD `e81db7b`, base `main`; `main`
 HEAD is `9fa38c2` and the shipped 1.11.0 bundle carries 0 occurrences of
