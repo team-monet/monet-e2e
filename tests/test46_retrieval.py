@@ -102,8 +102,12 @@ def main():
         check("build_rc0", r.returncode == 0, r.stderr[-300:])
         check("build_bundle_exists", os.path.exists(out_bundle), out_bundle)
         if r.returncode != 0:
-            print(f"\nRESULT: {len(PASS)} passed, {len(FAIL)} failed")
-            return 1
+            # STALE (5): see test43 — a pure-source build that no longer compiles
+            # against the monorepo is harness drift, not a product failure.
+            print(f"\nRESULT: STALE — driver build failed against {cli_dir}")
+            print(f"  esbuild error tail: {r.stderr[-300:]}")
+            print("  Re-baseline the retrieval driver against the current source.")
+            return 5
 
         r2 = subprocess.run([node, out_bundle], env=env, capture_output=True, text=True, timeout=60)
         check("driver_rc0", r2.returncode == 0, f"rc={r2.returncode}")

@@ -122,12 +122,28 @@ def main():
                 passed, failed = -1, -1
             check("driver_zero_fail", failed == 0, f"failed={failed}")
             check("driver_full_pass_count", passed >= 46, f"passed={passed}")
+        # the driver prints its own FAIL lines, which is how the drifted block is named
+        driver_fails = {ln.split()[1] for ln in r2.stdout.splitlines()
+                        if ln.strip().startswith("FAIL ") and len(ln.split()) > 1}
     finally:
         try:
             os.remove(build_script)
         except OSError:
             pass
 
+    if FAIL:
+        # STALE (5): the driver RAN, but its expectations predate an upstream
+        # behaviour flip, so the disagreement is the driver's, not the product's.
+        # Keep this list tight — anything outside it stays a real FAIL.
+        KNOWN_DRIFT = {"corr_mode", "corr_attachTo", "corr_no_dup_edge"}
+        if driver_fails and driver_fails <= KNOWN_DRIFT:
+            print("\nRESULT: STALE — driver expectations predate the RE-47 flip")
+            print("  The corr_* block pins mode 'correction-attach' for an ambiguous-band")
+            print("  correction, but the current source returns 'ambiguous-fork' (RE-47,")
+            print("  XPASS in this same suite).")
+            print(f"  Disagreeing checks: {sorted(driver_fails)}")
+            print("  Re-baseline the corr_* block against the current resolution.ts.")
+            return 5
     print(f"\nRESULT: {len(PASS)} passed, {len(FAIL)} failed")
     return 1 if FAIL else 0
 

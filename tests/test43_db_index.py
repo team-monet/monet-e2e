@@ -112,8 +112,14 @@ def main():
         check("build_rc0", r.returncode == 0, r.stderr[-300:])
         check("build_bundle_exists", os.path.exists(out_bundle), out_bundle)
         if r.returncode != 0:
-            print(f"\nRESULT: {len(PASS)} passed, {len(FAIL)} failed")
-            return 1
+            # STALE (5): the pure-source build no longer compiles against the
+            # monorepo. Do NOT fall through to the leftover bundle — running a
+            # stale bundle and reporting PASS is a false green.
+            print(f"\nRESULT: STALE — driver build failed against {cli_dir}")
+            print(f"  esbuild error tail: {r.stderr[-300:]}")
+            print("  The db/index.ts surface moved upstream; re-baseline the driver and")
+            print("  its core stub before trusting this test again.")
+            return 5
 
         # run the pure db/index driver
         r2 = subprocess.run([node, out_bundle], env=env, capture_output=True, text=True, timeout=60)

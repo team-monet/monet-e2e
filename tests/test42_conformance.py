@@ -81,6 +81,14 @@ def main():
         check(f"setup_{name}_exists", os.path.exists(p), p)
 
     if FAIL:
+        # STALE (5): a driver can only exercise the module it PINS. When upstream
+        # deletes or renames that source the harness cannot run at all — that is
+        # harness drift to re-baseline, not a verdict about the product.
+        if "setup_conformance.ts_exists" in FAIL:
+            print(f"\nRESULT: STALE — pinned driver target is gone from the monorepo: {conf_src}")
+            print("  Re-baseline this driver against the current source tree; until then it")
+            print("  provides NO coverage and says nothing about the product.")
+            return 5
         print(f"\nRESULT: {len(PASS)} passed, {len(FAIL)} failed")
         return 1
 

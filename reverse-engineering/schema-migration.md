@@ -467,6 +467,76 @@ build` 0 / `readSchemaVersionFromSqliteHeader` 0, `newer than supported schema` 
 (`monet repair` only) → the fix is still absent from the served build; RE-58's
 reproduction stands.
 
+### Flip guard discharged against run 117's constraints + the stray shapes measured on the SHIPPED build (2026-09-18, run 118)
+
+Run 117 left three obligations on the flip guard (constraints 1–3 above: cover the
+stray-sidecar shapes, probe lock-free and treat `database is locked` as
+inconclusive, never assert write-freeness). This run discharged all three in
+test58 and, as a side effect of building the fixtures, produced the **first
+shipped-side measurement of those two shapes** — the shapes the fixed build routes
+through its `null` preflight.
+
+**test58 is now a four-arm guard** (was two): `A_bare_header` (sidecar-free, uv=14,
+zero tables), `B_real_header` (real seeded store, stamped 14), plus the two shapes
+run 116/117 said test58 did not cover:
+
+| arm | pre shape | how the fixture is built |
+|-----|-----------|--------------------------|
+| `S1_orphan_wal` | `monet.db` + `monet.db-wal`, **no `-shm`** | 1-table WAL store (marker, uv=14) copied out of a STILL-OPEN WAL connection → real frames, no shm |
+| `S2_hot_journal` | `monet.db` + `monet.db-journal` (a **hot** journal) | 1-table DELETE-journal store (marker, uv=14) copied while `BEGIN IMMEDIATE` + INSERT is open |
+
+**Result on shipped 1.11.0 (`verdict=xfail`, exit 2): all four arms accepted and
+served.** No arm refused, nothing threw — the two preflight shapes run 117 singled
+out as the fix's least-verified path are, on the shipped build, simply *more* of the
+same silence. Per-arm post-journey DB state (measured this run; `state()` opens a
+copy, and the printed pre-shapes are the arm's own, captured before the journey):
+**"Served" is a measured user path, not a handshake**: every arm then took an
+independent-session `memory_store` → `memory_search` round trip and returned the row
+it had just written (`repro_stray_shape_served_S1_orphan_wal` /
+`_S2_hot_journal`, hits=1 each; header arms via
+`repro_write_and_search_on_newer_store` and
+`repro_older_build_serves_pre_existing_rows`). So on the stray shapes too, the
+shipped build will **accept writes into a store it cannot version-check and serve
+them back to the agent**.
+
+| arm | tables | `user_version` | sidecars after |
+|-----|--------|----------------|----------------|
+| `A_bare_header` | 0 → 27 | 14 → 14 | `monet.db` → WAL trio |
+| `B_real_header` | 27 → 27 | 14 → 14 (stamped from 13) | `moments.jsonl`, `monet.db` → WAL trio |
+| `S1_orphan_wal` | 1 → 28 | 14 → 14 | `db`+`-wal` → WAL trio (gains `-shm`) |
+| `S2_hot_journal` | 1 → 28 | 14 → 14 | `db`+`-journal` → **WAL trio: the hot journal is converted** |
+
+Two things this adds to the flip checklist that no earlier run measured:
+
+1. **Below the ceiling, every shape writes.** The above-ceiling store is not merely
+   opened: the older build's bootstrap runs 27 `CREATE TABLE`s, converts
+   `journal_mode` to WAL (including converting a HOT `-journal`, i.e. replaying/
+   discarding a foreign journal mid-flight), and then serves reads and writes
+   (store→search round-tripped on all four arms this run). This
+   is the shipped-side counterpart of constraint 3: write-freeness was never a
+   property of the unfixed build on ANY shape, so a flip-time assertion of it would
+   contrast two different shape sets rather than two builds.
+2. **`user_version` is never re-claimed.** All four arms end at 14 — the build
+   bootstraps a schema it cannot name and leaves the stamp claiming 14. The
+   "keeps claiming a schema this build cannot name" observation (run 114) holds on
+   the stray shapes too, so post-journey `user_version` is a stable flip-side
+   invariant, not an artifact of one shape.
+
+Guard mechanics added this run (`harness/run_all.py` + test58): the accept/refuse
+decision is factored into one testable `verdict()` (xpass / xfail / inconclusive)
+with a self-check arm that pins the classification on synthetic state tuples, and
+**exit code 4 = INCONCLUSIVE** is plumbed through `run_all.py` — it fails neither
+the suite nor the flip (a `lock`/other `failure` startup result is neither), and the
+run summary prints `INCONCLUSIVE` separately so a contended probe cannot be read as
+a fix. `journey(store)` runs the public surface (handshake → tools/list → store →
+search) sequentially, so the probe stays single-writer per constraint 2.
+
+Upstream state re-read directly this run (G-5): #155 still `state=OPEN`,
+`mergedAt=null`, head `770cd98` (unchanged since run 116), `mergeStateStatus=CLEAN`,
+updated 2026-09-16T22:09Z; `main` = `9fa38c2`; npm `latest` = 1.11.0 = installed. The
+ceiling is in neither `main` nor the served build, so RE-58 remains XFAIL — a bump is
+still the only flip signal, and it has not happened.
+
 ## Next steps
 1. Circle routing / aliases lifecycle (create/archive/`*` breadth) — includes
    `resolveCircle`, `circle_aliases` statuses, `migrateLegacyStarCircle` tail.

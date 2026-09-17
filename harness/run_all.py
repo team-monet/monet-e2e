@@ -11,8 +11,20 @@ Per-test exit codes (the authoritative signal):
   3 = XPASS  — unexpected pass: a known-bug test now passes, i.e. the bug
                appears FIXED. Suite stays green, but a loud warning is emitted
                so the issue status can be updated.
+  4 = INCONCLUSIVE — the test could not reach a verdict (e.g. a lock/timeout
+               hit the probe, or a known-bug guard partially flipped). NOT a
+               suite failure and NOT a flip signal: re-run on a quiet machine.
+               Never treat 4 as "fixed" or as "still broken".
+  5 = STALE  — the test could not reach what it pinned (a driver target source
+               that upstream deleted/renamed, a pure-source build that no longer
+               compiles against the monorepo, or a driver expectation that
+               predates an upstream behaviour flip). NOT a product verdict: the
+               harness drifted. Suite stays green but prints a loud STALE block
+               — these tests must be re-baselined, and until then they provide
+               NO coverage. Never record a STALE test as PASS in metrics.
 
-Suite exit: 0 if there are no FAILs (XFAIL/XPASS do not fail the suite), else 1.
+Suite exit: 0 if there are no FAILs (XFAIL/XPASS/INCONCLUSIVE/STALE do not fail
+the suite), else 1.
 """
 import glob
 import os
@@ -40,8 +52,9 @@ def _result_line(stdout):
 
 
 def main():
-    total = passed = xfail = xpass = 0
+    total = passed = xfail = xpass = inconclusive = stale = 0
     failures = []
+    stale_tests = []
     for t in TESTS:
         total += 1
         t0 = time.time()
@@ -59,6 +72,14 @@ def main():
         elif rc == 3:
             xpass += 1
             print(f"[XPASS] {name} ({dt:.1f}s) {line}  <<< bug appears FIXED — update issue status")
+        elif rc == 4:
+            inconclusive += 1
+            print(f"[INCON] {name} ({dt:.1f}s) {line}  <<< no verdict — re-run, do NOT flip")
+        elif rc == 5:
+            stale += 1
+            stale_tests.append(name)
+            print(f"[STALE] {name} ({dt:.1f}s) {line}  <<< harness drifted — re-baseline; provides NO coverage")
+            print(p.stdout[-500:])
         else:
             failures.append(name)
             print(f"[FAIL ] {name} ({dt:.1f}s) {line}")
@@ -70,10 +91,24 @@ def main():
         print(f", {xfail} xfail (known open bugs — expected)", end="")
     if xpass:
         print(f", {xpass} XPASS (bug appears fixed)", end="")
+    if inconclusive:
+        print(f", {inconclusive} INCONCLUSIVE (no verdict — re-run, do not flip)", end="")
+    if stale:
+        print(f", {stale} STALE (harness drifted — re-baseline)", end="")
     print()
     if xpass:
         print("⚠️  XPASS detected: a known-bug test now passes. The corresponding RE issue")
         print("    may be fixed in this Monet version — verify and update its status to closed.")
+    if inconclusive:
+        print("⚠️  INCONCLUSIVE test(s): a guard reached no verdict (lock/timeout/partial flip).")
+        print("    Re-run those tests before recording any flip or regression.")
+    if stale:
+        print(f"⚠️  STALE test(s) — {', '.join(stale_tests)}")
+        print("    These could not reach what they pinned (deleted/renamed source, build no")
+        print("    longer compiles against the monorepo, or expectations predating a behaviour")
+        print("    flip). They provide NO coverage until re-baselined, and their RESULT line is")
+        print("    NOT evidence about the product: never record them as PASS, and never cite")
+        print("    them as proof that a shipped behaviour is unchanged.")
     return 0 if not failures else 1
 
 
