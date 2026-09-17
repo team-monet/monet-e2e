@@ -405,6 +405,52 @@ Steps to run when a release carries the ceiling change:
    write from that path may still appear. Asserting absence would turn the fix
    into a FAIL — keep the write-free check out of the guard.
 
+### Flip-time assertion constraints — measured upstream evidence on HEAD `770cd98` (2026-09-17, run 117)
+
+Run 116 pre-registered the checklist from the HEAD's *diff*. This run adds the
+*measured* upstream evidence: the John-waived round-4 substitute review was spent
+on exactly this HEAD (`770cd98`, still `state=OPEN` / `mergedAt=null`, 4/4 checks
+green, `mergeStateStatus=CLEAN`) and its verdict is **`findings` (2×P2 + 2×P3)**,
+so **the merge gate is withheld and #155 will not merge without a further human
+ruling** — the flip precondition (a release that actually carries the ceiling)
+is therefore no closer than it was, and RE-58 stays XFAIL. Facts read this run
+(G-5: direct PR read + the branch's review artifact, not carried forward); the
+review's own measurements are **upstream-reported, unreleased, and not
+re-measured here** — they constrain what the flip check may assert:
+
+1. **The NULL-preflight branch is the least-verified path in the fix.** On
+   `770cd98` no committed test can make `readStoredSchemaVersion` return `null`
+   (`grep -cE "mock|spyOn|-journal|asymmetric"` over
+   `schema-version-ceiling.test.ts` → 0); all 11 tests decide via the header
+   (sidecar-free fixtures), the `-wal`/`-shm` peek, or a caller-supplied port.
+   ⇒ step 2 of the checklist (stray-sidecar shapes, which test58's two arms do
+   **not** cover) is not optional polish — it is the only coverage that path has.
+2. **On the NULL shape the ceiling is decided only AFTER the write port opens**
+   (`engine.ts:2971` before `2974`), so the refusal inherits the port's busy wait
+   against a locking peer (reviewer-measured: `journal_mode = WAL` blocked
+   **8147 ms** behind an 8 s exclusive holder) and can surface as
+   `(locked): database is locked` instead of the ceiling refusal. ⇒ **probe the
+   stray shapes lock-free and single-writer**, and treat a `database is locked`
+   result as *inconclusive* — neither a flip failure nor a flip success.
+3. **The fix is shape-dependent, not universal:** on `-journal` and asymmetric
+   shapes the store is **converted and modified before the refusal** (verified
+   independently by the dev lane: header bytes 18/19 flip `1,1`→`2,2`,
+   `-journal` removed, `-wal`/`-shm` created on a `user_version=14` store, and
+   only then is `14` read). Side-effect-free holds for the sidecar-free shape and
+   the `-wal`+`-shm` peek shape only. ⇒ at flip time, assert the **refusal**, never
+   write-freeness, on any shape (run 116's constraint, now with measured cause).
+4. **Residue has no issue of its own.** The shape-specific pre-refusal conversion
+   (3) and the ordering/deferral (2) are stated only in #155's PR body
+   known-gaps section; #107 covers the ceiling's absence and #156 the CLI
+   circle-map path. Flagged for the dev lane — **E2E does not file** (halt list:
+   no upstream triage, and it is the same defect family).
+
+Shipped-side baseline re-measured this run on dist 1.11.0 (sha256 `0c579e23…`,
+unchanged): `readStoredSchemaVersion` 0 / `refusing to open` 0 / `newer than this
+build` 0 / `readSchemaVersionFromSqliteHeader` 0, `newer than supported schema` 2
+(`monet repair` only) → the fix is still absent from the served build; RE-58's
+reproduction stands.
+
 ## Next steps
 1. Circle routing / aliases lifecycle (create/archive/`*` breadth) — includes
    `resolveCircle`, `circle_aliases` statuses, `migrateLegacyStarCircle` tail.
