@@ -423,8 +423,13 @@ re-measured here** — they constrain what the flip check may assert:
    (`grep -cE "mock|spyOn|-journal|asymmetric"` over
    `schema-version-ceiling.test.ts` → 0); all 11 tests decide via the header
    (sidecar-free fixtures), the `-wal`/`-shm` peek, or a caller-supplied port.
-   ⇒ step 2 of the checklist (stray-sidecar shapes, which test58's two arms do
-   **not** cover) is not optional polish — it is the only coverage that path has.
+   **Directly re-verified this run** by fetching that file at ref `770cd98`
+   (read-only, unreleased branch — not the GR-08 baseline): 343 lines, `  it(`
+   → **11**, `mock|spyOn` → **0**, `-journal|asymmetric` → **0**, refusal
+   assertions `toBe(refusal())` / `/newer than supported/` at 203/212/227/257/283/
+   306/337. ⇒ step 2 of the checklist (stray-sidecar shapes, which test58's two
+   arms do **not** cover) is not optional polish — it is the only coverage that
+   path has.
 2. **On the NULL shape the ceiling is decided only AFTER the write port opens**
    (`engine.ts:2971` before `2974`), so the refusal inherits the port's busy wait
    against a locking peer (reviewer-measured: `journal_mode = WAL` blocked
@@ -444,6 +449,17 @@ re-measured here** — they constrain what the flip check may assert:
    known-gaps section; #107 covers the ceiling's absence and #156 the CLI
    circle-map path. Flagged for the dev lane — **E2E does not file** (halt list:
    no upstream triage, and it is the same defect family).
+
+5. **The refusal message is compatible with test58's flip assertion (directly
+   verified this run, ref `770cd98`).** `engine.ts:2967-2968` / `2980-2981` build
+   the message as `Store schema ${v} is newer than supported schema
+   ${MONET_SCHEMA_VERSION}; refusing to open. Upgrade Monet first.` — it contains
+   the literal **`newer than supported`** that test58 checks
+   (`refusal_names_both_versions`), so the guard will not produce a *false
+   failure* at flip time on message mismatch. (Pre-registered because the branch
+   tests mix two expectation styles — `toBe(refusal())` for the
+   `captureOpenError` fixtures and `/newer than supported/` for the header/peek
+   ones — so a future reword of either site would have to be caught here.)
 
 Shipped-side baseline re-measured this run on dist 1.11.0 (sha256 `0c579e23…`,
 unchanged): `readStoredSchemaVersion` 0 / `refusing to open` 0 / `newer than this
