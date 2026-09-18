@@ -1,21 +1,34 @@
 // Driver for core/retrieval.ts — the query-ranking arms (scoring math only).
 //
-// This module exports the NATIVE and SOURCE retrieval scorers plus the
-// card-emission floor helper. It is PURE (imports only ./embedding and
-// ./lexical-overlap, neither of which has native deps), and its functions take
-// a `db` shaped like StoragePort — which is literally what a better-sqlite3
-// Database satisfies (`.prepare(sql).all(...params)`). So, unlike the
-// conformance/spans/skeleton drivers, this one drives the REAL SQL against a
-// REAL in-memory better-sqlite3 store (the native module is loaded by absolute
-// path via createRequire, staying out of the esbuild bundle). That means the
-// assertions cover the actual scoring queries (UNION-ALL segment/observation
-// arms, json_each binding, token DF), not a mock.
+// RE-BASELINED (run 119) against upstream 9fa38c2, where PR #61 "Retire the
+// source subsystem" (6c3d9c6) DELETED the source retrieval arm:
+//   * scoreSourceConcepts no longer exists as an export -> the whole SS1..SS6
+//     block and its source_chunks fixture are removed, not re-baselined; there
+//     is no equivalent subject left to pin.
+//   * the `AND o.kind != 'source'` guards were removed from the NATIVE arm, so
+//     S6 INVERTS: a kind='source' observation on a native concept is now
+//     SCORED. #61's rationale (its own commit body) is that the predicate that
+//     hid those rows came out of the native read paths, and the native
+//     migration phase's coverage selector was aligned to match
+//     (enforcedNativeObservationRows) so the invariant "migration coverage =
+//     ALL vectors that scoring reads" still holds by construction.
+//
+// This module exports the NATIVE retrieval scorer plus the card-emission floor
+// helper. It is PURE (imports only ./lexical-overlap, which has no native
+// deps), and its functions take a `db` shaped like StoragePort — which is
+// literally what a better-sqlite3 Database satisfies
+// (`.prepare(sql).all(...params)`). So, unlike the conformance/spans/skeleton
+// drivers, this one drives the REAL SQL against a REAL in-memory better-sqlite3
+// store (the native module is loaded by absolute path via createRequire,
+// staying out of the esbuild bundle). That means the assertions cover the
+// actual scoring queries (UNION-ALL segment/observation arms, json_each
+// binding, token DF), not a mock.
 //
 // The MCP suite reaches scoreNativeConceptsByObservation through memory_search,
-// but only the happy path — the 52.5% uncovered slice is the edge branches:
-// zero-vector / non-positive / tie / superseded / source-kind exclusions, the
-// observation-without-segment UNION-ALL fallback, the lexical arm's early
-// returns and its per-observation overlap max, and all of scoreSourceConcepts.
+// but only the happy path — the uncovered slice is the edge branches:
+// zero-vector / non-positive / tie / superseded exclusions, the
+// observation-without-segment UNION-ALL fallback, and the lexical arm's early
+// returns and its per-observation overlap max.
 //
 // Isolation (GR-01): in-memory DB only; no store, no embedder, no ~/.monet.
 //
@@ -24,19 +37,16 @@
 //     (undefined/NaN/±Inf/-/<0 />=1 -> 0.12; in-range finite -> itself).
 //   scoreNativeConceptsByObservation: max over segments picks highest cosine;
 //     zero vectors excluded (placeholder); score<=0 excluded; tie -> smaller
-//     observation id; superseded obs excluded; kind='source' excluded;
-//     segment-less obs scored via the UNION-ALL fallback; empty candidate list
-//     -> empty map; applyLexicalArm re-orders by per-observation overlap max,
-//     never adds a candidate, early-returns on empty best / token-less probe.
-//   scoreSourceConcepts: non-source rows ignored; zero chunks excluded; MAX
-//     over {whole-file cosine, every ACTIVE chunk} (inactive chunks excluded);
-//     no chunks -> whole-file; chunk>whole-file and whole-file>chunk.
+//     observation id; superseded obs excluded; kind='source' IS SCORED (the
+//     guard was removed by #61 — see the S6 block); segment-less obs scored via
+//     the UNION-ALL fallback; empty candidate list -> empty map; applyLexicalArm
+//     re-orders by per-observation overlap max, never adds a candidate,
+//     early-returns on empty best / token-less probe.
 import { createRequire } from "module";
 import {
   NATIVE_SCORE_FLOOR,
   nativeScoreFloorOf,
   scoreNativeConceptsByObservation,
-  scoreSourceConcepts,
 } from "@retrieval-src";
 
 const require = createRequire(import.meta.url);
@@ -79,8 +89,7 @@ function mkdb() {
      CREATE TABLE observation_segments(
        observation_id TEXT, segment_index INTEGER, embedding TEXT,
        PRIMARY KEY(observation_id, segment_index));
-     CREATE TABLE observation_tokens(observation_id TEXT, token TEXT);
-     CREATE TABLE source_chunks(concept_id TEXT, observation_id TEXT, lifecycle TEXT);`
+     CREATE TABLE observation_tokens(observation_id TEXT, token TEXT);`
   );
   return db;
 }
@@ -93,9 +102,9 @@ function storeObs(db, { id, concept, kind = "native", embedding, superseded_by =
   );
   tokens.forEach((t) => db.prepare("INSERT INTO observation_tokens(observation_id,token) VALUES(?,?)").run(id, t));
 }
-function storeChunk(db, { concept, observation_id, lifecycle }) {
-  db.prepare("INSERT INTO source_chunks(concept_id,observation_id,lifecycle) VALUES(?,?,?)").run(concept, observation_id, lifecycle);
-}
+
+// (storeChunk + the source_chunks fixture table were REMOVED in run 119 along
+// with the scoreSourceConcepts arm — PR #61 retired the source subsystem.)
 
 // ============================ nativeScoreFloorOf ============================
 ok(NATIVE_SCORE_FLOOR === 0.12, "floor const is 0.12");
@@ -158,13 +167,21 @@ ok(nativeScoreFloorOf(0) === 0, "floor 0 -> 0 (valid lower bound)");
   ok(res.get("c1").observationId === "o2", "s5 attribution to live obs");
 }
 
-// S6: kind='source' observation excluded from the NATIVE arm.
+// S6: kind='source' observation is SCORED by the native arm (INVERTED, run 119).
+// Pre-#61 this asserted exclusion (0.6 from the native obs alone). #61 removed
+// the `AND o.kind != 'source'` guard from the native read paths, so the
+// source-kind row now participates: its cosine 1.0 beats the native row's 0.6
+// AND it is the attributed winner. Pinning the attribution too, because a guard
+// removal that scored the row but still attributed the win elsewhere would be a
+// half-removal.
 {
   const db = mkdb();
   storeObs(db, { id: "o1", concept: "c1", kind: "source", embedding: S_A, segments: [S_A] });
   storeObs(db, { id: "o2", concept: "c1", embedding: S_A, segments: [S_B] });
   const res = scoreNativeConceptsByObservation(db, ["c1"], Q, "x", false);
-  ok(approx(res.get("c1").score, 0.6), "s6 source-kind obs excluded");
+  const got = res.get("c1");
+  ok(approx(got.score, 1.0), `s6 source-kind obs scored [${JSON.stringify(got)}]`);
+  ok(got.observationId === "o1", `s6 source-kind obs wins attribution [${JSON.stringify(got)}]`);
 }
 
 // S7: UNION-ALL fallback — observation with NO segments scored by its own vector.
@@ -228,67 +245,19 @@ ok(nativeScoreFloorOf(0) === 0, "floor 0 -> 0 (valid lower bound)");
   ok(approx(res.get("c1").rank, 0.6 * 2), "s12 c1 rank uses max-over-observations overlap (1.2)");
 }
 
-// ========================== scoreSourceConcepts ============================
-// SS1: empty rows / non-source rows -> empty map.
-{
-  const db = mkdb();
-  ok(scoreSourceConcepts(db, [], Q).size === 0, "ss1 empty rows -> empty");
-  ok(scoreSourceConcepts(db, [{ id: "n1", kind: "native", embedding: S_A }], Q).size === 0, "ss1 non-source ignored");
-}
-
-// SS2: all-zero chunk excluded -> whole-file cosine alone.
-{
-  const db = mkdb();
-  const rows = [{ id: "s1", kind: "source", embedding: S_A }];
-  storeObs(db, { id: "o1", concept: "s1", kind: "source", embedding: S_ZERO });
-  storeChunk(db, { concept: "s1", observation_id: "o1", lifecycle: "active" });
-  const res = scoreSourceConcepts(db, rows, Q);
-  ok(approx(res.get("s1"), 1.0), "ss2 zero chunk excluded -> whole-file 1.0");
-}
-
-// SS3: active chunk beats whole-file.
-{
-  const db = mkdb();
-  const rows = [{ id: "s1", kind: "source", embedding: S_B }]; // whole-file 0.6
-  storeObs(db, { id: "o1", concept: "s1", kind: "source", embedding: S_A }); // chunk 1.0
-  storeChunk(db, { concept: "s1", observation_id: "o1", lifecycle: "active" });
-  const res = scoreSourceConcepts(db, rows, Q);
-  ok(approx(res.get("s1"), 1.0), "ss3 active chunk max -> 1.0");
-}
-
-// SS4: whole-file beats chunk.
-{
-  const db = mkdb();
-  const rows = [{ id: "s1", kind: "source", embedding: S_A }]; // whole-file 1.0
-  storeObs(db, { id: "o1", concept: "s1", kind: "source", embedding: S_B }); // chunk 0.6
-  storeChunk(db, { concept: "s1", observation_id: "o1", lifecycle: "active" });
-  const res = scoreSourceConcepts(db, rows, Q);
-  ok(approx(res.get("s1"), 1.0), "ss4 whole-file max -> 1.0");
-}
-
-// SS5: inactive chunk excluded from the max.
-{
-  const db = mkdb();
-  const rows = [{ id: "s1", kind: "source", embedding: S_B }]; // 0.6
-  storeObs(db, { id: "o1", concept: "s1", kind: "source", embedding: S_A }); // would be 1.0 but INACTIVE
-  storeObs(db, { id: "o2", concept: "s1", kind: "source", embedding: S_C }); // active 0.8
-  storeChunk(db, { concept: "s1", observation_id: "o1", lifecycle: "archived" });
-  storeChunk(db, { concept: "s1", observation_id: "o2", lifecycle: "active" });
-  const res = scoreSourceConcepts(db, rows, Q);
-  ok(approx(res.get("s1"), 0.8), "ss5 inactive chunk excluded -> 0.8");
-}
-
-// SS6: source row with no chunks -> whole-file cosine.
-{
-  const db = mkdb();
-  const rows = [{ id: "s1", kind: "source", embedding: S_A }];
-  const res = scoreSourceConcepts(db, rows, Q);
-  ok(approx(res.get("s1"), 1.0), "ss6 no chunks -> whole-file 1.0");
-}
+// ==================== scoreSourceConcepts: REMOVED (run 119) ================
+// SS1..SS6 pinned the source retrieval arm (whole-file cosine vs the MAX over
+// active source_chunks). Upstream PR #61 "Retire the source subsystem"
+// (6c3d9c6) DELETED the export, so the block and its source_chunks fixture are
+// removed rather than re-baselined: a deleted module cannot be re-baselined,
+// and leaving the block in place would only re-break the build. The
+// retirement's own invariant — that no source-kind row is hidden from the
+// native read paths any more — is pinned by S6 above, which is where the
+// behavioural half of #61 is actually observable.
 
 console.log(`RESULT: ${PASS} passed, ${FAIL} failed`);
 process.exit(FAIL ? 1 : 0);
 
 // Re-export the module under test so the bundle is also introspectable (used by
 // ad-hoc drivers / coverage attribution debugging), harmless to the direct-run path.
-export { NATIVE_SCORE_FLOOR, nativeScoreFloorOf, scoreNativeConceptsByObservation, scoreSourceConcepts };
+export { NATIVE_SCORE_FLOOR, nativeScoreFloorOf, scoreNativeConceptsByObservation };

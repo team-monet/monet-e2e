@@ -11,8 +11,10 @@
 // The band mapping under test (design of record, resolution.ts header):
 //   obsScore >= tauAttach & centroidScore >= tauAmbiguous -> ATTACH (mode "attach")
 //   obsScore >= tauAttach & centroidScore <  tauAmbiguous -> FORK (mode "fork-signal")
-//   tauAmbiguous <= obsScore < tauAttach                  -> ambiguous band
-//        kind=="correction" -> correction-attach | else ambiguous-fork
+//   tauAmbiguous <= obsScore < tauAttach                  -> ambiguous-fork, FOR EVERY KIND
+//        (the kind=="correction" exemption was RETIRED upstream #52 / RE-47: a
+//         correction no longer attaches in the ambiguous band, so this block
+//         asserts kind-parity — plain and correction decisions are identical)
 //   obsScore <  tauAmbiguous & centroidTop >= tauAttach   -> create + PAIR (mode "blur-duplicate")
 //   obsScore <  tauAmbiguous                             -> CREATE (mode "new")
 //   nomination === null  -> createOrPair(input, 0) (centroid has NO attach power)
@@ -103,14 +105,26 @@ const nom = (conceptId, obsScore, centroidScore, observationId = "o1") =>
   check("amb_on_tauAmbiguous_forks", d.mode === "ambiguous-fork", d.mode);
 }
 
-// ---- 7. CORRECTION-ATTACH: ambiguous band, kind="correction" --------------
+// ---- 7. CORRECTION IN THE AMBIGUOUS BAND: kind-parity with plain kind ------
+// RE-BASELINED (run 119). Upstream #52 / RE-47 retired the kind="correction"
+// exemption: nothing below tauAttach attaches, whatever the caller's intent.
+// The old expectation (mode "correction-attach" + attachToConceptId set) was
+// the pre-fix behaviour this suite itself flags as RE-47 XPASS (test53).
+// resolution.ts:431-445 now returns the SAME ambiguous-fork decision as block 5,
+// so the assertion below pins KIND-PARITY, not just the mode string.
 {
   const d = resolveIncoming({ nomination: nom("c1", 0.6, 0.8), kind: "correction", thresholds: T });
-  check("corr_mode", d.mode === "correction-attach", d.mode);
+  const plain = resolveIncoming({ nomination: nom("c1", 0.6, 0.8), thresholds: T });
+  check("corr_mode", d.mode === "ambiguous-fork", d.mode);
   check("corr_action_ambiguous", d.action === "ambiguous", d.action);
-  check("corr_attachTo", d.attachToConceptId === "c1", d.attachToConceptId);
+  check("corr_no_attachTo", d.attachToConceptId === undefined, String(d.attachToConceptId));
+  check("corr_dup_edge", d.duplicateEdge?.conceptId === "c1" && d.duplicateEdge.weight === 0.6,
+    JSON.stringify(d.duplicateEdge));
   check("corr_nearmatch", d.nearMatchId === "c1" && d.nearMatchScore === 0.6, `${d.nearMatchId}/${d.nearMatchScore}`);
-  check("corr_no_dup_edge", d.duplicateEdge === undefined, JSON.stringify(d.duplicateEdge));
+  // the RE-47 invariant itself: the decision must not depend on kind
+  check("corr_kind_parity_with_plain",
+    JSON.stringify(d) === JSON.stringify(plain),
+    JSON.stringify(d));
 }
 
 // ---- 8. BLUR-DUPLICATE: obs below ambiguous, centroid claims identity ------

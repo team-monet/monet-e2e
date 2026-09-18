@@ -124,7 +124,11 @@ def main():
             except (IndexError, ValueError):
                 passed, failed = -1, -1
             check("driver_zero_fail", failed == 0, f"failed={failed}")
-            check("driver_full_pass_count", passed >= 38, f"passed={passed}")
+            # 32 = the driver's assertion count AFTER the run-119 re-baseline:
+            # SS1..SS6 (-7) and the storeChunk/source_chunks fixture went away
+            # with the retired source arm, S6's single check became two (score +
+            # attribution).
+            check("driver_full_pass_count", passed >= 32, f"passed={passed}")
     finally:
         try:
             os.remove(build_script)

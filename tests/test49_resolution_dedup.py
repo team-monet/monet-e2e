@@ -121,8 +121,10 @@ def main():
             except (IndexError, ValueError):
                 passed, failed = -1, -1
             check("driver_zero_fail", failed == 0, f"failed={failed}")
-            check("driver_full_pass_count", passed >= 46, f"passed={passed}")
-        # the driver prints its own FAIL lines, which is how the drifted block is named
+            # 47 = the driver's full assertion count AFTER the run-119 re-baseline
+            # (block 7 keeps 5 checks and gains the kind-parity check).
+            check("driver_full_pass_count", passed >= 47, f"passed={passed}")
+        # the driver prints its own FAIL lines; a name here is now a REAL failure
         driver_fails = {ln.split()[1] for ln in r2.stdout.splitlines()
                         if ln.strip().startswith("FAIL ") and len(ln.split()) > 1}
     finally:
@@ -132,18 +134,14 @@ def main():
             pass
 
     if FAIL:
-        # STALE (5): the driver RAN, but its expectations predate an upstream
-        # behaviour flip, so the disagreement is the driver's, not the product's.
-        # Keep this list tight — anything outside it stays a real FAIL.
-        KNOWN_DRIFT = {"corr_mode", "corr_attachTo", "corr_no_dup_edge"}
-        if driver_fails and driver_fails <= KNOWN_DRIFT:
-            print("\nRESULT: STALE — driver expectations predate the RE-47 flip")
-            print("  The corr_* block pins mode 'correction-attach' for an ambiguous-band")
-            print("  correction, but the current source returns 'ambiguous-fork' (RE-47,")
-            print("  XPASS in this same suite).")
-            print(f"  Disagreeing checks: {sorted(driver_fails)}")
-            print("  Re-baseline the corr_* block against the current resolution.ts.")
-            return 5
+        # RE-BASELINED (run 119). This block used to carry a KNOWN_DRIFT shim
+        # that classified {"corr_mode", "corr_attachTo", "corr_no_dup_edge"} as
+        # STALE (exit 5) because the driver pinned pre-fix behaviour against the
+        # RE-47 flip. The driver now pins the POST-fix contract and adds a
+        # kind-parity assertion, so that shim is DELETED on purpose: a corr_*
+        # disagreement is once again a genuine product regression and must fail
+        # the suite loudly rather than exit 5.
+        print(f"\n  disagreeing checks: {sorted(driver_fails)}")
     print(f"\nRESULT: {len(PASS)} passed, {len(FAIL)} failed")
     return 1 if FAIL else 0
 

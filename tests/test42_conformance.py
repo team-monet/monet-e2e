@@ -1,6 +1,37 @@
 #!/usr/bin/env python3
 """Scenario (pure-core driver): core/conformance.ts line coverage (test42).
 
+*** SUBJECT DELETED UPSTREAM — NEEDS A NEW SUBJECT, NOT A RE-BASELINE (run 119) ***
+
+Re-verified 2026-09-18 against `main` = 9fa38c2:
+  - `packages/core/src/conformance.ts` does NOT exist.
+  - `packages/core/src/gate-journal.ts` does NOT exist either.
+  - `computeConformance` / `runConformancePass` appear NOWHERE in the monorepo
+    (grep: only the mcp-cli.ts prose comment "the conformance pass had no
+    surface" survives).
+So the verdict decision table this scenario pinned was not moved or renamed —
+the whole journal-verdict domain was REPLACED by the moment-conformance model:
+`momentConformance(circle)` (engine.ts) over a governed-moment spool, surfaced
+as the `conformance_ask` / `conformance_answer` MCP tools and the
+`conformance` fact in the overview.
+
+SUCCESSOR CANDIDATE (pre-verified this run, for the next scenario author):
+`packages/core/src/moment-ledger.ts` — 1577 lines, exports MOMENT_SCHEMA_SQL,
+createMomentTables, declaredMomentColumns, migrateMomentColumnsFrom,
+foldMomentSpool, readGovernedMoment, observedMomentLosses, momentLossCount,
+momentConformance, momentCounts, momentRuleReadsByStage, momentsOwingAQuestion,
+attachMomentAsk/Answer, and four error classes. ⚠️ It is NOT a pure module:
+every entry point takes a `StoragePort` (a real SQLite DB), and it imports
+`./moment-spool` (which IS pure). A driver therefore needs a store fixture, so
+this is a NEW scenario — copy the store-spawning pattern from the MCP-backed
+tests, do not try to emulate conformance.ts's no-store driver.
+
+KEPT AT EXIT 5 ON PURPOSE: a deleted subject must stay LOUD — it verifies
+nothing, so it must not turn the suite green (silent missing coverage) nor red
+(a red suite hides real regressions). The old docstring below is kept as the
+record of what this scenario was, and of why its assertions cannot simply be
+pointed at the new module.
+
 DIRECTION priority #1 (monet-e2e#18): core/conformance.ts was the largest
 non-deprecated core gap at 33.1% (169/510). It is NOT reachable through any
 MCP/CLI surface — engine.runConformancePass(), the sole caller of
@@ -86,8 +117,12 @@ def main():
         # harness drift to re-baseline, not a verdict about the product.
         if "setup_conformance.ts_exists" in FAIL:
             print(f"\nRESULT: STALE — pinned driver target is gone from the monorepo: {conf_src}")
-            print("  Re-baseline this driver against the current source tree; until then it")
-            print("  provides NO coverage and says nothing about the product.")
+            print("  The subject was DELETED (with gate-journal.ts) and its domain was")
+            print("  redesigned into the moment-conformance model, so this is NOT a")
+            print("  re-baseline: the scenario needs a NEW subject. Pre-verified candidate")
+            print("  = core/src/moment-ledger.ts (DB-backed via StoragePort -> needs a store")
+            print("  fixture, not a pure driver). Until then it provides NO coverage and")
+            print("  says nothing about the product.")
             return 5
         print(f"\nRESULT: {len(PASS)} passed, {len(FAIL)} failed")
         return 1
