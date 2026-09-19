@@ -39,12 +39,26 @@ Desired contract (asserted below — pre-registered flip candidate, but ONLY for
 release whose contents actually include the #155 ceiling change; a version bump
 alone does not flip this guard): `monet start` refuses to open a store newer than
 this build.
-The ceiling fix is PR #155, which is **OPEN and NOT merged** (verified
-2026-09-16: `state=OPEN`, `mergedAt=null`, HEAD `e81db7b`, base `main`; `main`
-HEAD is `9fa38c2` and the shipped 1.11.0 bundle carries 0 occurrences of
-`readStoredSchemaVersion` / `refusing to open`). The flip signal is the REFUSAL
-only; #156 records that the fixed CLI still writes the circle map before the
-refusal, so this test does not assert a write-free store.
+The ceiling fix is PR #155. ~~which is **OPEN and NOT merged**~~ **[CORRECTED
+2026-09-19, run 121 — the run-116/117/118 claim was superseded: #155 is now
+**MERGED** at `2026-09-18T23:22:24Z`, `main` HEAD moved `9fa38c2` → `d920bc2`
+(direct `gh pr view 155 --json state,mergedAt,headRefOid` this run). The fix is
+still in **NO published release** — 1.11.0 shipped 2026-09-01, before the merge
+— so the guard correctly stays XFAIL on the shipped bundle: 0 occurrences of
+`readStoredSchemaVersion` / `refusing to open` / `newer than this build` remain.
+The flip contract is unchanged (a RELEASE containing the fix, not a version
+bump). What run 121 added is the first execution of this guard against a build
+that CONTAINS the fix: a source bundle built from `d920bc2` (esbuild, via
+`coverage-build.mjs`) refuses on **all four arms** — `verdict=xpass`, exit 3,
+`user_version` unchanged on every arm, refusal text
+"Store schema 14 is newer than supported schema 13; refusing to open. Upgrade
+Monet first." on the `null`-preflight stray shapes (orphan `-wal`, hot
+`-journal`) too. So the next release carrying #155 should flip this guard
+cleanly; the pre-release prediction is recorded in
+`reverse-engineering/schema-migration.md`. The flip signal is the REFUSAL only;
+#156 records that the fixed CLI still writes the circle map before the refusal,
+so this test does not assert a write-free store — **and run 121 measured that
+residue on the FIXED build for the first time** (see schema-migration.md).]
 
 Flip-time arm set and classification (added 2026-09-18, run 118)
 ----------------------------------------------------------------
@@ -549,7 +563,8 @@ def main():
     print(f"\nRESULT: XFAIL {ISSUE} — dist 1.11.0 has no schema ceiling: an above-ceiling store "
           f"opens, is bootstrapped and served on all four sidecar arms (header x2, orphan-wal, "
           f"hot-journal), while `monet repair` refuses the same store "
-          f"(upstream {UPSTREAM}; ceiling PR #155 OPEN, not merged, unreleased)")
+          f"(upstream {UPSTREAM}; ceiling PR #155 MERGED 2026-09-18 into `main` "
+          f"but in NO published release — flip pending a release)")
     return 2
 
 

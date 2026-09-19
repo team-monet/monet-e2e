@@ -537,6 +537,81 @@ updated 2026-09-16T22:09Z; `main` = `9fa38c2`; npm `latest` = 1.11.0 = installed
 ceiling is in neither `main` nor the served build, so RE-58 remains XFAIL — a bump is
 still the only flip signal, and it has not happened.
 
+### Pre-release flip validation against the MERGED fix (2026-09-19, run 121)
+
+The wake signal run 120 named arrived: **#155 is MERGED**. Direct read this run
+(G-5, `gh pr view 155 --json state,mergedAt,headRefOid`): `state=MERGED`,
+`mergedAt=2026-09-18T23:22:24Z`; `main` HEAD moved `9fa38c2` → **`d920bc2`**
+(`fix(core): refuse to open a store newer than this build's schema (#107) (#155)`),
+and the whole merge is **4 files**: `core/src/storage.ts`, `core/src/engine.ts`,
+plus two upstream cli `__tests__` files.
+
+**Release alignment first (G-5): the flip has NOT happened.** 1.11.0 shipped
+2026-09-01, seventeen days before the merge, and the shipped bundle still carries
+**0** occurrences of `readStoredSchemaVersion` / `refusing to open` /
+`newer than this build` (`newer than supported schema` = 2, the `monet repair`
+refusal only). So RE-58 stays XFAIL on the published artifact, and the flip
+contract is unchanged: **a RELEASE containing the fix, not a version bump.**
+
+**What this run added: the first execution of the guard against a build that
+CONTAINS the fix.** Waiting for the release would have left the guard's four-arm
+classification — especially the `null`-preflight stray shapes added in run 118 —
+untested until the first release after the merge, i.e. the one time it matters.
+Method: build the merged source with the existing coverage bundle builder
+(`MONET_REPO=~/monet/monet node packages/cli/e2e-src-build.mjs` →
+`packages/cli/dist-coverage/cli.js`), copy it into the installed package as
+`dist/cli.srcd920bc2.js` so externalized native deps resolve from the working
+install, then run test58 unchanged with `MONET_CLI` pointed at it.
+
+**Result: `verdict=xpass`, exit 3 — all four arms REFUSE.** The two
+least-verified shapes are the point: the `null` preflight (orphan `-wal` without
+`-shm`; hot `-journal`) reaches the live re-check and still refuses, so a release
+carrying #155 should flip this guard cleanly. Measured per arm:
+
+| arm | preflight path | startup result | exit | refusal text | uv | new tables | sidecars after |
+|-----|----------------|----------------|------|--------------|----|------------|----------------|
+| `A_bare_header` | header (offset 60) | `ceiling_refused` | 1 | yes | 14 → **14** | 0 → 1 (`remote_circle_map`) | `-wal`/`-shm` created |
+| `B_real_header` | header | `ceiling_refused` | 1 | yes | 14 → **14** | 27 → 27 (none) | `-shm` created |
+| `S1_orphan_wal` | **`null` → live re-check** | `ceiling_refused` | 1 | yes | 14 → **14** | 1 → 2 | gains `-shm` |
+| `S2_hot_journal` | **`null` → live re-check** | `ceiling_refused` | 1 | yes | 14 → **14** | 1 → 2 | gains `-wal`/`-shm` |
+
+Refusal text, identical on every arm: **"Store schema 14 is newer than supported
+schema 13; refusing to open. Upgrade Monet first."** `user_version` is unchanged
+on all four arms — the fix does not re-claim, downgrade or repair the stamp.
+
+**Residue on the FIXED build, measured for the first time (this is #156, now
+behaviourally confirmed rather than code-read).** The refusal is not write-free:
+the store still gains `remote_circle_map` (on the arms that lacked it), the WAL
+sidecars, and `monet.db.startup-failure.json`. The guard deliberately asserts only
+the refusal — but the flip-time reader should know the fixed build's residue is
+*measured*, not *presumed*: #156's PR-body claim ("the fixed CLI still writes the
+circle map before the refusal") reproduces on `d920bc2`.
+
+**New observation — the ceiling is checked AFTER the embedder is selected.**
+`openServedCore()` (`packages/cli/src/bootstrap.ts:41-48`) is phase-ordered:
+`selectEmbedder(dbPath)` runs inside phase `embedder-selection`, and only then does
+`new MonetCore(dbPath, …)` run inside `store-open`, where the ceiling throw lives.
+So on the `monet start` path an above-ceiling store still pays a full provider load
+(bge-m3 q8 ≈1 GB resident; a ~550 MB **download** on a cold cache) *before* being
+refused — and the refusal is phase-tagged `store-open`, i.e. it is reported as a
+store fault even though the embedder phase was the expensive one. This is a
+startup-cost/attribution observation for the fixed build, not a data-safety one;
+it does not change the flip contract.
+
+**Drift check (GR-09) — a monorepo pull is a change to the driver tests, so the
+suite was measured on BOTH sides of the pull.** `bash harness/run_suite.sh` before
+(clone at `9fa38c2`) and after (`d920bc2`) the `git pull --rebase`:
+**`38/60 PASS + 13 XFAIL + 8 XPASS + 1 STALE + 0 FAIL` (exit 0) on both**, with
+every per-test verdict identical. Consistent with the merge touching no file any
+driver pins — the clean case, and it is recorded as a measurement rather than
+assumed from the diffstat.
+
+**Scope of the claim.** This is a SOURCE build at `d920bc2`, not a shipped
+artifact — it predicts the flip, it does not perform it. Nothing about the
+published 1.11.0 changes: the guard must stay XFAIL until a release contains the
+fix. The prediction to falsify on that release: all four arms refuse, exit 3, with
+`user_version` stable.
+
 ## Next steps
 1. Circle routing / aliases lifecycle (create/archive/`*` breadth) — includes
    `resolveCircle`, `circle_aliases` statuses, `migrateLegacyStarCircle` tail.
