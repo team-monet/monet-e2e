@@ -612,6 +612,46 @@ published 1.11.0 changes: the guard must stay XFAIL until a release contains the
 fix. The prediction to falsify on that release: all four arms refuse, exit 3, with
 `user_version` stable.
 
+## Independent verification of the fix HEAD (run 122, 2026-09-20)
+
+The #156 residue above was measured on the merge base (`d920bc2`). This section is the
+flip-time re-measurement the note asked for, run against the fix HEAD of PR **#159**
+(`agent-ops/monet-158-ceiling-shapes`, `caa9d88`, `Closes #158, Closes #156`, still
+`state=OPEN`/draft) — built from source and driven on the LIVE `monet start` path with the
+same probe, same fixtures, same arm names. `packages/cli/src/bootstrap.ts` is byte-identical
+between the two trees, so any delta is the PR's.
+
+Per arm (main file `monet.db`; `user_version = 14` vs supported 13):
+
+| arm | base `d920bc2` | PR HEAD `caa9d88` |
+|---|---|---|
+| `A_bare_header` | sha changed, +8192 B, `delete→wal`, `remote_circle_map` created | **sha unchanged, 0 B, `delete`, no table** |
+| `B_real_header` | unchanged (only the failure sidecar) | unchanged (only the failure sidecar) |
+| `S1_orphan_wal` | sha changed, +12288 B, `marker`+`remote_circle_map`, WAL folded `uv 0→14` | **sha unchanged, 0 B, `uv 0` (WAL left unfolded), no table**; `+monet.db-shm` 32768 B |
+| `S2_hot_journal` | sha changed, +8192 B, `delete→wal`, hot `-journal` **consumed** | **sha unchanged, 0 B, `delete`, `-journal` (4616 B) preserved** |
+
+All arms, both trees: `state=ceiling_refused`, exit 1, text `Store schema 14 is newer than supported
+schema 13; refusing to open. Upgrade Monet first.`, `user_version` never re-claimed. So the refusal is
+write-free at the main-file level on the fixed HEAD — the circle map is no longer created and the
+`-journal` is no longer consumed — with exactly two residues: the intended
+`monet.db.startup-failure.json` and one 32 KB `monet.db-shm` that the read-only WAL peek materialises
+on the orphan-`-wal` shape (no tables, WAL left unfolded → no content change). `test58` against this
+HEAD reports `RESULT: XPASS` (exit 3).
+
+**Cost half, measured for the first time (filed as team-monet/monet#160).** The same refusal arm,
+differing only in the model cache: warm cache → **1.07 s**; empty `MONET_MODEL_CACHE` → **33.43 s
+after downloading 586,779,294 B** (`Xenova/bge-m3/onnx/model_quantized.onnx` 569,694,530 B +
+tokenizer/conf). An *accepted* fresh-store start on the same bundle is **0.9 s**, so the 33 s is the
+provider fetch. The mechanism noted above is therefore confirmed empirically, not just read from the
+source order: `openServedCore()` runs phase `embedder-selection` (`chooseStoreEmbedder` →
+`instantiateEmbedderForPin`, weights load/download) before phase `store-open` where the ceiling is
+read, and PR #159 does not touch that ordering.
+
+**Zero-length store.** A store dir holding exactly one 0-byte `monet.db` is **served and bootstrapped
+on all three builds** (published 1.11.0, base, PR HEAD → 417,792 B). The #158 defect was never
+serving; it is the pre-engine *decision* (`0` = fresh vs `null` = unopenable) that kept the CLI from
+resolving the project's circle. Recorded so the PR title is not later read as a serving regression.
+
 ## Next steps
 1. Circle routing / aliases lifecycle (create/archive/`*` breadth) — includes
    `resolveCircle`, `circle_aliases` statuses, `migrateLegacyStarCircle` tail.
