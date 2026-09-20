@@ -229,11 +229,19 @@ def main():
         rE = c.call_json("memory_store", {"content": claim_e, "circle": CIRCLE,
                                           "sourceRefs": ["e2e:test21"]})
         ce = rE.get("conceptId")
+        # GR-06 re-run safety: the store step itself can auto-pair this claim with a
+        # structural twin in the same circle (possible_duplicate_of, dismissed_at NULL).
+        # Clear those BEFORE opening the contradiction, so the retire refusal below is
+        # attributable to the open contradiction alone -- otherwise this arm fails with
+        # `it carries N undismissed pair flag(s)` and the pair-dismiss fallback (line ~253)
+        # has to rescue it, which is a false FAIL in the suite tally.
+        dismissed_pairs = dismiss_dup_pairs(c, CIRCLE, ce)
         fl = c.call_json("memory_flag_contradiction",
                          {"conceptId": ce, "detail": f"stale on {TOKEN}",
                           "kind": "staleness", "circle": CIRCLE})
         cont = fl.get("contradictionId")
-        check("e_flag_open", bool(cont) and fl.get("status") == "open", f"contradictionId={cont}")
+        check("e_flag_open", bool(cont) and fl.get("status") == "open",
+              f"contradictionId={cont} auto_pairs_dismissed={len(dismissed_pairs)}")
 
         re_ = c.call_json("memory_retire", {"id": ce, "circle": CIRCLE})
         err_e = str(re_.get("_rawText", ""))
