@@ -23,9 +23,20 @@ file's job is the *presentation and lifecycle* of those semantics:
 4. **Shutdown machinery** — in-flight tool-call tracking + a referenced-timer barrier
    + signal/EOF handlers so a long handler (e.g. `source_sync`) can't touch a closed DB.
 
-## Tool roster (23 tools)
+## Tool roster (21 tools on 1.11.0)
 
-The definitive registration order (`server.tool(...)` call sites):
+> **Live measurement, 2026-09-21 (run 124, dist 1.11.0):** `tools/list` on the shipped stdio
+> surface announces **21 tools, single page, no `nextCursor`** — a host that never follows a
+> cursor still sees the whole roster (probe `/tmp/r124_probe4.py`; the bundle-literal
+> cross-check finds no announced tool missing from `dist/cli.js`). The four `source_*` tools in
+> the table below are **gone** (withdrawn with the source subsystem in 1.7.0: MCP 23→21, −4
+> `source_*` +2 `conformance_ask`/`conformance_answer`; see the ISSUES.md change log
+> "Source subsystem hard-removal reclassification", 2026-08-22). The table is kept as the
+> historical registration order: treat rows 19–22 as removed, 1–18 + 23 as live, plus
+> `conformance_ask` / `conformance_answer`.
+
+The definitive registration order (`server.tool(...)` call sites; `packages/core/src/mcp-server.ts`
+carries exactly **21** sites on `main`):
 
 | # | Tool | Engine method | Category |
 |---|------|---------------|----------|
@@ -212,7 +223,30 @@ field and silently disagreed about which rules exist.
   leaves the host with only "Connection closed" (-32000). Fail-closed is deliberate
   (never substitute another embedder), so the fix is a design decision — degraded serving
   mode vs out-of-band diagnosis vs narrowing the causes. Routes to the L2 design-decision
-  queue (not a behavioral XFAIL). Upstream #13.
+  queue (not a behavioral XFAIL). Upstream #13. **Measured first-run cost of that window
+  (run 124, 2026-09-21, live stdio path, dist 1.11.0):** with an EMPTY model cache the first
+  `initialize` took **34.67 s** and pulled **586,779,294 B** (`[monet-core] loading local
+  embedding model (Xenova/bge-m3:cls:q8; first run downloads once)…` → `582.3 MB read` →
+  `semantic embeddings ready`), while a warm restart `initialize` is **0.85–1.08 s**. The whole
+  download sits inside RE-50's pre-channel window, so on a brand-new machine it is the first
+  session's wall time, and a failed download leaves the host with only "Connection closed".
+
+- **RE-61 (S4, confirmed, 2026-09-21 run 124)** — **the served identity is a frozen literal, not
+  the release.** `createMonetCoreMcpServer` constructs `new McpServer({name:"monet-core",
+  version:"0.7.0"}, …)` (mcp-server.ts:3869), and an in-repo assertion pins the same string
+  (`core/src/__tests__/lifecycle.test.ts:352`), so the number cannot drift with a release.
+  Measured on the live `monet start` stdio surface (isolated stores, dist 1.11.0, three
+  independent arms): `initialize` → `serverInfo = {"name":"monet-core","version":"0.7.0"}`,
+  while the SAME install is `@team-monet/monet@1.11.0`, `monet --version` prints `1.11.0`, and
+  the registry manifest of the same build (`packages/cli/server.json`) declares `1.11.0`. The
+  literal is byte-identical in the shipped `dist/cli.js` of five installed releases (`1.2.4`,
+  `1.7.0`, `1.9.1`, `1.10.0`, `1.11.0`). No other surface fills the gap: `monet doctor --json`
+  has no version field and `agent_context` returns only `{circle}` — so a host panel quoting
+  `monet-core 0.7.0` cannot be mapped to a build, and an agent inside a session cannot answer
+  "which Monet version am I on?" from any tool response. Distinct from the CLI surface:
+  `monet --version` is correct, so the defect is identity **on the wire**, not a wrong build.
+  XFAIL guard `tests/test62_re61_frozen_server_identity.py` (7 checks held / 3 desired-unmet);
+  upstream **team-monet/monet#161**.
 
 ## Relationship to other docs
 
