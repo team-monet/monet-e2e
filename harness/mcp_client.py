@@ -25,12 +25,24 @@ DATA = os.environ.get("MONET_TEST_DIR", os.path.expanduser("~/.monet-test"))
 
 
 class MonetClient:
-    def __init__(self, data_dir, log_prefix="monet"):
+    def __init__(self, data_dir=None, log_prefix="monet", extra_args=None):
+        """Spawn `monet start`.
+
+        `data_dir=None` omits `-d` entirely: that is the BARE start a host or a
+        human actually runs, which is the only shape that exercises storage
+        RESOLUTION (env rungs / project `.monet` / `$HOME/.monet`). Passing a
+        dir adds `-d <dir>` (the isolated-store shape every other test uses).
+        """
+        args = [CLI, "start"]
+        if data_dir:
+            args += ["-d", data_dir]
+        if extra_args:
+            args += list(extra_args)
         env = dict(os.environ)
         if NODE_PATH:
             env["PATH"] = NODE_PATH + ":" + env.get("PATH", "")
         self.proc = subprocess.Popen(
-            [CLI, "start", "-d", data_dir],
+            args,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -145,19 +157,21 @@ class MonetClient:
             self.proc.wait()
 
 
-def run_cli(args, env_extra=None, timeout=30, stdin=None):
+def run_cli(args, env_extra=None, timeout=30, stdin=None, cwd=None):
     """Run a `monet <args...>` CLI subcommand (NOT the MCP server) and return
     (returncode, stdout, stderr). Prepends NODE_PATH to PATH so the cli.js
     shebang resolves node@22. env_extra dict is merged over the inherited env
     (e.g. MONET_STORAGE_DIR / MONET_CALLER_ID / MONET_PROJECT_ID). `stdin` is
-    piped to the process (for `--stdin`-reading subcommands like `monet gate`)."""
+    piped to the process (for `--stdin`-reading subcommands like `monet gate`).
+    `cwd` matters for storage RESOLUTION (the `cwd` rung of the ladder) — pass
+    it explicitly instead of os.chdir so concurrent arms stay independent."""
     env = dict(os.environ)
     if NODE_PATH:
         env["PATH"] = NODE_PATH + ":" + env.get("PATH", "")
     if env_extra:
         env.update(env_extra)
     p = subprocess.run([CLI, *args], capture_output=True, text=True, env=env,
-                       timeout=timeout, input=stdin)
+                       timeout=timeout, input=stdin, cwd=cwd)
     return p.returncode, p.stdout, p.stderr
 
 

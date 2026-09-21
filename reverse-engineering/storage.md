@@ -159,3 +159,31 @@ Upstream: **team-monet/monet#162** (filed run 125; duplicates searched: `MONET_P
 3. Either search upward for a project store, or notice when the resolved store differs from the one
    recently used for the same project. Fix RE-63 by resolving `MONET_STORAGE_DIR` into the reported
    string on every surface.
+
+### Run 126 — promoted to the suite (the probe becomes a guard)
+
+Run 125 left RE-62/RE-63 as probe-only (`/tmp/r125_*`). Run 126 turned both into suite-linked
+tests that assert the DESIRED contract and exit 2 (XFAIL) while the defect stands:
+
+| Test | Issue | Class | Run-126 verdict |
+|------|-------|-------|-----------------|
+| test63 | scenario 12 (positive) | storage RESOLUTION — six surfaces must name ONE file | **PASS** (44 checks, 0 failed, 29.1 s) |
+| test64 | RE-62 | rung disclosure + operability from below the root | **XFAIL** — REPRO 16/16, DESIRED 0/4 |
+| test65 | RE-63 | relative `MONET_STORAGE_DIR` display | **XFAIL** — 4 surfaces, desired unmet |
+
+What the guards add over the probes: (1) **test64 leg H1** pins the blind spot with no flip at all —
+with `MONET_PROJECT_DIR=<proj>` and cwd `<proj>`, the bare server stores into `<proj>/.monet`
+(concepts 1) while a bare `status` at `<proj>/sub` and `<proj>/sub/deep` reports `$HOME/.monet`
+(**concepts 0**) and its `memory_search` returns **0 hits** for the row that is physically in the
+project store — the rung needs the directory to EXIST *and* the cwd to be exactly it, and `monet
+status` does not search upward. (2) **test64 leg H2** re-plays the silent flip (before flip:
+`$HOME/.monet`, hit 1; `monet start -d <proj>/.monet` creates the rung; after: store = `<proj>/.monet`,
+`!=` the store holding the row, hit **0**) and proves the row still EXISTS in the old store
+(observation_tokens row count 1) — nothing is lost, it becomes unreachable. (3) **test65** names the
+harm: a reader resolving the verbatim string against its OWN cwd gets
+`~/.monet-test/rel-store/monet.db` — a different file from the served `<proj>/.monet/monet.db`.
+
+Harness note (GR-10, added this run): the bare-call test class cannot use `-d`, so every call must run
+under a sandboxed `HOME`/`MONET_*` env AND every path a surface reports is hard-asserted to be inside
+the sandbox before the scenario is judged; the first test64 run omitted that wrap on its `status`
+calls and opened the REAL `$HOME/.monet` (read paths only).
