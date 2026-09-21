@@ -94,3 +94,68 @@ and its sharp edges are documented in-line rather than open.
   skip foreign files, empty-result semantics) and the `StoreBusyError` holder naming.
 - `embedder-pin.test.ts` + `migrate-embeddings.test.ts` cover the read-only pin/vector-presence
   peeks and the repair-backup path (quick_check gate, no-clobber, sidecar cleanup).
+
+## Store resolution across surfaces (run 125, measured on dist 1.11.0)
+
+**Rung order (source + measurement agree):** `MONET_STORAGE_DIR` (absolute or relative; `--dir`/`-d`
+sets it) → `<projectDir>/.monet` **if that directory exists** → `$HOME/.monet`, where
+`projectDir = MONET_PROJECT_DIR || CLAUDE_PROJECT_DIR || cwd` via `path.resolve` only — i.e. the
+**exact** cwd, no upward search (`packages/cli/src/project-dir.ts`). The middle rung is the one no
+public doc mentions.
+
+### Surface matrix (8 arms; probes `/tmp/r125_store_res_probe2.py`, `/tmp/r125_flip_probe.py`)
+
+Surfaces compared: `status` **stdout** (`Storage:`), `status` **stderr** (`Storage:`),
+`doctor --json` (`dbPath`), `start` **stderr** (`Storage:`), `monet config --agent cursor` (pinned
+`MONET_STORAGE_DIR` — the store *dir*), `monet dashboard` (`Store:`, where measured).
+
+| Arm | Shape | Resolved store | Surfaces agree |
+|-----|-------|----------------|----------------|
+| A1 | no override, cwd has no `.monet` | `$HOME/.monet/monet.db` | yes |
+| A2 | no override, cwd HAS `./.monet` | `<cwd>/.monet/monet.db` | yes (and ≠ the documented `~/.monet`) |
+| A3 | `MONET_PROJECT_DIR=projA`, cwd=projB | `<projA>/.monet/monet.db` | yes (incl. dashboard) |
+| A4 | `CLAUDE_PROJECT_DIR=projA`, cwd=projB | `<projA>/.monet/monet.db` | yes |
+| A5 | both set, different | `<MONET_PROJECT_DIR>/.monet/monet.db` | yes (MONET wins) |
+| A6 | absolute `MONET_STORAGE_DIR` | that absolute dir | yes (beats both project vars) |
+| A7 | **relative** `MONET_STORAGE_DIR=rel-store` | `./rel-store/monet.db` | **no** — stdout/start print it verbatim, stderr/doctor print it resolved (RE-63, S4) |
+| A8 | landing journey (see below) | mixed | by design/see RE-62 |
+
+In **every** arm `created_project_.monet = []`: no diagnostic created a project-local store, so
+"asking the question" does not change the answer. The multi-surface consistency fix shipped in
+1.11.0 is therefore verified on the live path (RE-62 is *not* about surfaces disagreeing).
+
+### A8 — agent-host → operator landing journey
+- Host env (`MONET_PROJECT_DIR=<repo>`, spawned at a different cwd): served `<repo>/.monet`;
+  `memory_store` → `created`; same-process search hit 1; **fresh server process** with the same env
+  read it back (hit 1) → durable and reproducible.
+- Operator with the host env → `<repo>/.monet`, `Concepts: 1` ✅
+- Bare operator at the **repo root** → `<repo>/.monet`, `Concepts: 1` ✅ (the rung incidentally
+  helps a human standing in the repo root)
+- Bare operator at **`<repo>/sub`** → `$HOME/.monet`, `Concepts: 0` ❌ — and the call creates
+  `$HOME/.monet/monet.db` (physical check), so the wrong-rung store becomes durable.
+
+### A9 — the silent flip (one documented flag, then bare calls only)
+| # | Invocation | Store | Concepts |
+|---|-----------|-------|----------|
+| 1 | `monet start` (cwd=projC) + `memory_store` | `$HOME/.monet` | 1 (hit 1) |
+| 2 | `monet status` (projA) | `$HOME/.monet` | 1 |
+| 3 | `monet start -d <projA>/.monet` | `<projA>/.monet` | — (creates the rung) |
+| 4 | `monet status` (projA) | `<projA>/.monet` | **0** |
+| 5 | `monet start` (projA) → `memory_search` | `<projA>/.monet` | **0 hits** |
+| 6 | `monet status` / start (projC) → search | `$HOME/.monet` | 1 (hit 1) |
+
+Nothing is lost — but from step 4 on, the same user in the same repo is served an empty store, the
+flip is permanent (the rung is "exists", checked on every entry point), and nothing says so.
+`monet doctor --dir ~/.monet --json` reports `dbPath: $HOME/.monet/monet.db` at that point, so the
+README's own diagnosis command answers about the store that is *not* in use.
+
+Upstream: **team-monet/monet#162** (filed run 125; duplicates searched: `MONET_PROJECT_DIR` 0 hits,
+`store resolution subdirectory` 0 hits).
+
+### Asks (in #162)
+1. Document the rung (and call `~/.monet` the *default*, not "the" store).
+2. Disclose a project-local rung choice in `status`/`doctor` text (explicit override vs project
+   `.monet`).
+3. Either search upward for a project store, or notice when the resolved store differs from the one
+   recently used for the same project. Fix RE-63 by resolving `MONET_STORAGE_DIR` into the reported
+   string on every surface.
