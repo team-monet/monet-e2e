@@ -112,6 +112,35 @@ record that failed to replicate would make two machines disagree about what gove
   footgun for any consumer that filters edges by circle. `by-design` (S4) — recorded for visibility.
   See ISSUES.md.
 
+## Run 127 — the ratification journey verified live (RE-64)
+
+`tests/test66_ratify_journey.py` drives the whole `memory_ratify` surface on the live
+`monet start` stdio path (isolated temp store; 71 checks, 0 failed) — the first run in which the
+ENTRY verdicts, `memberRuleIds`, `entrance`/`battery` and the derivation edge were exercised rather
+than only the `retire`-inside-a-recipe leg. What the wire actually returns, for anyone reading the
+table above:
+
+- **`edgeIds` are `lifecycle_edges` row ids** — not the rule's concept id, and not `memory_edge`
+  rows: `family='derivation'`, `src_concept_id`=the principle, `dst_concept_id`=the rule,
+  `born_of='ratification'`, `event_ref`=the ratification id the ack returns. A test that greps
+  `memory_edge` for the ack's `edgeIds` finds nothing and misreads a correct ack as a broken link.
+- **Non-uniqueness is the contract, not a bug**: the same rule named twice in ONE call mints one
+  edge (per-call dedup), while approve → re-ratify mints two — exactly the schema comment's "a rule
+  corrected twice carries two evidence spans". Do not "fix" this by asserting one row per pair.
+- **`verdict="retire"` ends membership, not the concept**: the concept stays live; `memory_retire`
+  is still required, and it refuses a current member by naming the
+  `memory_ratify … verdict="retire"` remedy first.
+- **The pair-flag door**: `memory_retire` on a concept carrying an undismissed
+  `possible_duplicate_of`/`extraction_candidate` edge is refused with the partner NAMED, and the
+  remedy is `memory_resolve` with `conceptAId`+`conceptBId` ONLY. Passing `decision` (or `body`, or
+  `contradictedObservationId`) alongside them is refused by name — the pair path REJECTS
+  contradiction-verdict fields rather than ignoring them, so a helper that "also passes decision"
+  silently clears nothing. Pair rows are written bidirectionally; one dismissal clears both
+  (`rowsUpdated=2`).
+- `entrance` is a two-way boundary: `"extraction"` without a complete 4-gate `battery` is refused,
+  and `"declaration"` WITH a battery is refused too (sovereignty replaced the test) — both arms
+  asserted.
+
 ## Verification
 
 `lifecycle-edges.test.ts` (1703-line contract test) pins the schema invariants, the three-family

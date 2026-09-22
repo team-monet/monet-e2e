@@ -248,6 +248,16 @@ field and silently disagreed about which rules exist.
   XFAIL guard `tests/test62_re61_frozen_server_identity.py` (7 checks held / 3 desired-unmet);
   upstream **team-monet/monet#161**.
 
+### Run 127 — the ratification surface verified live (RE-64)
+
+`tests/test66_ratify_journey.py` (71 checks green, isolated store, live `monet start` stdio) is the
+first MCP-side journey over `memory_ratify`: all four verdicts (`approve`/`re-ratify`/`reject`/
+`retire`), both `entrance` directions, a 4-gate `extraction` battery, the candidate guards
+(`only a skeleton candidate`, principle-only, `memberRuleIds` must name a rule), the
+`memberRuleIds` derivation edges, and a readback through `memory_overview`/`agent_context` plus a
+FRESH process. No wire defect: every refusal named its remedy. Returned shapes, the pair-flag door
+and the reason a two-edge derivation result is correct → `lifecycle-edges.md` § "Run 127".
+
 ## Relationship to other docs
 
 - `memory_search` semantics → `search-pipeline.md`; `memory_resolve`/`flag` →
