@@ -2,6 +2,7 @@
 monet.db
 monet.db-shm
 monet.db-wal
+monet.db.*.json
 gate-mirror.json
 inflight-*.json
 slow-queries.jsonl

@@ -118,6 +118,7 @@ def burst_phase():
     def run_burst(make_content):
         out = [[] for _ in clients]
         errs = [[] for _ in clients]
+        notes = [[] for _ in clients]
         def writer(idx, client):
             for i in range(5):
                 content = make_content(idx, i)
@@ -125,6 +126,11 @@ def burst_phase():
                     r = client.call_json("memory_store", {"content": content, "circle": CIRCLE2, "sourceRefs": ["e2e:test09-burst"]})
                     ok = bool(r.get("conceptId"))
                     cid = r.get("conceptId")
+                    if not ok:
+                        # Non-exception failure (e.g. an ambiguous refusal with no
+                        # conceptId) — keep the payload so the cause is diagnosable.
+                        with lock:
+                            notes[idx].append(repr(r)[:220])
                 except Exception as exc:  # noqa: BLE001 — record for diagnosis
                     ok = False
                     cid = None
@@ -138,10 +144,18 @@ def burst_phase():
             t.start()
         for t in threads:
             t.join()
-        return time.time() - t0, [item for lat in out for item in lat], errs
+        return time.time() - t0, [item for lat in out for item in lat], errs, notes
 
     # Sub-phase A: near-identical template -> dedup under concurrency
-    wall_a, flat_a, errs_a = run_burst(lambda idx, i: f"Burst load test payload about the same topic {TOKEN2} item {i} of writer {idx}")
+    # NOTE (run 128, RE-66): burstA runs FOUR concurrent `monet start` servers x 5 stores on ONE
+    # store, which is BEYOND the topology the product states ("One MCP server and one `monet` CLI
+    # call sharing a store is the supported topology" — StoreBusyError text). Expect contention-
+    # dependent reds: the failing store answers `{"_rawText": "store failed: database is locked"}`
+    # (raw text, so no exception and no conceptId) and a server can die in `phase: "store-open"`
+    # (`StoreBusyError`), which then also fails the dedup check below as a CASCADE (unique=2).
+    # Measured: in-suite 2/2 FAIL vs standalone 6/7 PASS; deterministic only with a second test09
+    # running concurrently. Keep the assertion as the measurement — do not relax it to go green.
+    wall_a, flat_a, errs_a, notes_a = run_burst(lambda idx, i: f"Burst load test payload about the same topic {TOKEN2} item {i} of writer {idx}")
     ok_a = all(ok for ok, _ in flat_a)
     ids_a = set(cid for _, cid in flat_a)
     check("burstA_20_stores_ok", ok_a, f"ok={sum(1 for ok, _ in flat_a if ok)}/20 wall={wall_a:.1f}s")
@@ -176,7 +190,7 @@ def burst_phase():
     ]
     def distinct_content(idx, i):
         return f"[{TOKEN2}] {sentences[idx*5+i]}"
-    wall_b, flat_b, errs_b = run_burst(distinct_content)
+    wall_b, flat_b, errs_b, notes_b = run_burst(distinct_content)
     ok_b = all(ok for ok, _ in flat_b)
     ids_b = [cid for _, cid in flat_b]
     check("burstB_20_stores_ok", ok_b, f"ok={sum(1 for ok, _ in flat_b if ok)}/20 wall={wall_b:.1f}s")
@@ -185,6 +199,9 @@ def burst_phase():
     all_errs = [e for le in errs_a + errs_b for e in le]
     if all_errs:
         print(f"  INFO burst exceptions: {all_errs[:8]}")
+    all_notes = [n for le in notes_a + notes_b for n in le]
+    if all_notes:
+        print(f"  INFO burst responses without conceptId: {all_notes[:4]}")
 
     # cross-visibility under load: client 0 searches a distinctive phrase from each writer
     seen = []

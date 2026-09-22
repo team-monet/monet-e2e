@@ -84,6 +84,12 @@ and touch only the raw driver, never `MonetCore`'s schema/migration logic.
   guards, `cosine` returns a plausible number instead of erroring. No storage-layer bug here;
   the note is owned by `embedding.ts`.
 
+- **RE-66 (S2, confirmed)** — the burst failure mode finally has a name: under more than the
+  topology the product states ("One MCP server and one `monet` CLI call sharing a store"), a
+  store call returns `store failed: database is locked` as RAW TEXT (an id-less response, no
+  exception) and `monet start` can die in `phase: "store-open"` with `StoreBusyError`. Measured
+  in run 128 — details + numbers in "Run 128 — the burst failure mode has a name" below.
+
 No storage-layer issue of its own. The module is heavily reviewed (four Codex rounds on the
 trace-frame invariant, PR #216 holder-filter + constructor-cleanup, #215 open-timeout budget)
 and its sharp edges are documented in-line rather than open.
@@ -187,3 +193,31 @@ Harness note (GR-10, added this run): the bare-call test class cannot use `-d`, 
 under a sandboxed `HOME`/`MONET_*` env AND every path a surface reports is hard-asserted to be inside
 the sandbox before the scenario is judged; the first test64 run omitted that wrap on its `status`
 calls and opened the REAL `$HOME/.monet` (read paths only).
+
+### Run 128 — the burst failure mode has a name (RE-66)
+
+The 2026-08-12 test09 burst flake was recorded as "resource contention (model-load memory
+pressure), not reproducible standalone". Run 128 re-measured it: that generic label was hiding
+TWO distinct, named failures, both invisible before the test recorded non-`conceptId` responses
+(`ok = bool(r.get("conceptId"))` used to drop the payload silently):
+
+1. **A store under contention answers with raw text**: `{"_rawText": "store failed: database is
+   locked"}` — no `conceptId`, no exception, no JSON-RPC error. A caller keying on ids sees a
+   silent miss, and the burst guard then ALSO reports a false dedup failure (`unique=2`) because
+   the failed store never joined the single concept.
+2. **`monet start` can fail to start at all**: `phase: "store-open"`, `StoreBusyError`
+   (`code: SQLITE_BUSY`) — "SQLite reported it locked while a statement in the startup's schema
+   region ran. That region had been running for 8179ms [8436ms] when it failed", with the
+   treatment "One MCP server and one `monet` CLI call sharing a store is the supported topology,
+   so this is usually transient — retry once the other process finishes". Written to
+   `monet.db.startup-failure.json` (3,252 B). Its clients then saw `RuntimeError: server closed
+   stdout / timeout` + `BrokenPipeError`, and one instance stored only 10/20.
+
+So the guard asserts a topology the product declines to support: **in-suite 2/2 FAIL** (both
+suite runs today) vs **standalone 6/7 PASS** (1/3 before instrumentation, 4/4 after), and it
+failed deterministically only when two test09 instances ran concurrently (burst walls 23.1 s /
+19.4 s vs 10–14 s healthy). The red is contention, not a regression — but the test stays red on
+purpose, because the assertion is the measurement. The dev Objective is the CONTRACT: either
+state the supported topology on the CLI/doctor surface and have the guard assert the documented
+shape (all-succeed, or the named `StoreBusyError` / `database is locked` — never a hang,
+corruption, or an id-less response), or make startup and store retry/backoff on a shared store.

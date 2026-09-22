@@ -258,6 +258,26 @@ first MCP-side journey over `memory_ratify`: all four verdicts (`approve`/`re-ra
 FRESH process. No wire defect: every refusal named its remedy. Returned shapes, the pair-flag door
 and the reason a two-edge derivation result is correct → `lifecycle-edges.md` § "Run 127".
 
+### Run 128 — the last unmeasured tool: `memory_detach` (RE-65)
+
+`tests/test67_detach_journey.py` (53 checks green, isolated store, live `monet start` stdio,
+suite-linked as scenario 14) is the first MCP-side journey over `memory_detach`. It exists
+because the roster check in `test01` is a lockstep STRING assertion, not coverage: 20 of the 21
+advertised tools had a driven journey and `memory_detach` had none — the one tool that repairs
+bad attachment state (the over-merge cleanup the server-ops playbook prescribes). Six arms:
+
+| Arm | What it pins |
+|-----|--------------|
+| a/b — split to a NEW concept | 4 obs on the source → 1 named obs leaves → `destAction:"created"`, source `observationCount` 4→3, source `body` rebuilt WITHOUT the moved text, `needsSynthesis` re-armed on both sides, destination carries the source `kind` and stays in the same circle |
+| c — split to an EXISTING concept | `destConceptId` → `destAction:"attached"`, destination grows and holds the moved evidence, an unrelated third concept is untouched |
+| d — FULL consolidation | `sourceDeleted:true` → the source's `concepts` ROW is gone and `memory_fetch` on it refuses; the keeper holds every moved observation, re-serves the moved text on `memory_search`, and outranks the other holder of the topic; the removed slug + uuid are carried as destination ALIASES (`concepts.aliases`) |
+| d10/d11 — the alias boundary | aliases are NOT id resolution: `memory_fetch` by the removed slug or the removed uuid → `concept not found`; `circleOf()` is id-only, so no tool param reaches the keeper through an old handle (aliases serve asserted `#slug` references) |
+| e — refusals | last-observation, self-destination, foreign / nonexistent / empty observation list, wrong-circle source, wrong-circle destination, workstream source, retired source — each named, and both sides byte-untouched afterwards |
+| f — durability | the whole state (split survived, deleted source stays deleted, the other holder unchanged) re-read from a FRESH process |
+
+No wire defect: every refusal named its target, and the description's four promises are accurate
+as written. Detail + severity: `ISSUES.md` RE-65.
+
 ## Relationship to other docs
 
 - `memory_search` semantics → `search-pipeline.md`; `memory_resolve`/`flag` →
